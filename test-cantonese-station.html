@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>测试粤语电台 - RTHK</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #fff;
+        }
+        .test-section {
+            background: #2a2a2a;
+            padding: 20px;
+            margin: 10px 0;
+            border-radius: 8px;
+        }
+        .success { color: #4CAF50; }
+        .error { color: #f44336; }
+        .warning { color: #ff9800; }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+        pre {
+            background: #1a1a1a;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            max-height: 300px;
+        }
+        .subtitle-display {
+            background: #000;
+            padding: 30px;
+            margin: 20px 0;
+            border-radius: 8px;
+            min-height: 150px;
+            text-align: center;
+        }
+        .subtitle-cn {
+            color: #4CAF50;
+            font-size: 24px;
+            margin: 10px 0;
+        }
+        .subtitle-hk {
+            color: #fff;
+            font-size: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 粤语电台测试 - RTHK Radio 1</h1>
+
+    <div class="test-section">
+        <h2>步骤 1: 验证配置</h2>
+        <button onclick="checkConfig()">检查配置</button>
+        <div id="configResult"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>步骤 2: 连接测试</h2>
+        <button onclick="testConnection()" id="connectBtn">连接 RTHK Radio 1</button>
+        <button onclick="disconnect()" id="disconnectBtn" disabled>断开连接</button>
+        <div id="connectionStatus"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>步骤 3: 字幕显示</h2>
+        <div class="subtitle-display">
+            <div class="subtitle-hk" id="subtitleHK">等待粤语字幕...</div>
+            <div class="subtitle-cn" id="subtitleCN"></div>
+        </div>
+        <div>接收到的字幕数量: <span id="subtitleCount" class="success">0</span></div>
+    </div>
+
+    <div class="test-section">
+        <h2>日志</h2>
+        <pre id="logOutput"></pre>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:8533';
+        const STATION_CODE = 'rthk_r1';
+
+        let eventSource = null;
+        let clientId = null;
+        let subtitleCount = 0;
+        let logs = [];
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const prefix = type === 'error' ? '❌' : type === 'success' ? '✅' : 'ℹ️';
+            const logMessage = `[${timestamp}] ${prefix} ${message}`;
+            logs.push(logMessage);
+            if (logs.length > 20) logs.shift();
+            document.getElementById('logOutput').textContent = logs.join('\n');
+            console.log(logMessage);
+        }
+
+        async function checkConfig() {
+            const resultDiv = document.getElementById('configResult');
+            resultDiv.innerHTML = '<p>正在检查...</p>';
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/radios`);
+                const data = await response.json();
+
+                const rthk = data.radios.find(r => r.id === STATION_CODE);
+
+                if (rthk) {
+                    const isCorrect = rthk.language === 'zh-HK';
+                    resultDiv.innerHTML = `
+                        <p class="${isCorrect ? 'success' : 'error'}">
+                            ${isCorrect ? '✅' : '❌'} 电台: ${rthk.name}
+                        </p>
+                        <p>语言代码: <strong>${rthk.language}</strong> ${isCorrect ? '(正确!)' : '(错误! 应该是 zh-HK)'}</p>
+                        <p>目标语言: ${rthk.targetLanguage}</p>
+                        <p>流地址: ${rthk.url}</p>
+                    `;
+                    log(`配置检查: ${rthk.language}`, isCorrect ? 'success' : 'error');
+                } else {
+                    resultDiv.innerHTML = '<p class="error">❌ 未找到 RTHK Radio 1</p>';
+                    log('未找到电台', 'error');
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="error">❌ 错误: ${error.message}</p>`;
+                log(`检查配置失败: ${error.message}`, 'error');
+            }
+        }
+
+        async function testConnection() {
+            const statusDiv = document.getElementById('connectionStatus');
+            statusDiv.innerHTML = '<p>正在连接...</p>';
+            log('开始连接 RTHK Radio 1');
+
+            try {
+                // 步骤1: 获取 token
+                const connectUrl = `${API_BASE_URL}/sse/connect?station_code=${STATION_CODE}`;
+                const response = await fetch(connectUrl);
+                const data = await response.json();
+
+                log(`获取到 token: ${data.token.substring(0, 30)}...`, 'success');
+
+                // 步骤2: 建立 SSE 连接
+                const centrifugoUrl = 'http://localhost:8000/connection/uni_sse';
+                const sseUrl = new URL(centrifugoUrl);
+                sseUrl.searchParams.append('cf_connect', JSON.stringify({
+                    token: data.token
+                }));
+
+                eventSource = new EventSource(sseUrl);
+
+                eventSource.onopen = function() {
+                    statusDiv.innerHTML = '<p class="success">✅ SSE 连接已建立</p>';
+                    log('SSE 连接成功', 'success');
+                };
+
+                eventSource.onmessage = function(event) {
+                    if (event.data === '{}') return; // Ping
+
+                    try {
+                        const msg = JSON.parse(event.data);
+
+                        if (msg.connect) {
+                            clientId = msg.connect.client;
+                            log(`Centrifugo 连接成功, Client ID: ${clientId}`, 'success');
+                            statusDiv.innerHTML = '<p class="success">✅ 已连接，正在启动识别...</p>';
+                            startRecognition();
+                        }
+
+                        if (msg.pub && msg.pub.data) {
+                            const pushData = msg.pub.data;
+
+                            if (pushData.event === 'recognized') {
+                                subtitleCount++;
+                                document.getElementById('subtitleCount').textContent = subtitleCount;
+
+                                const zhText = pushData.translations?.['zh-CN'] || '';
+                                document.getElementById('subtitleHK').textContent = pushData.text;
+                                document.getElementById('subtitleCN').textContent = zhText;
+
+                                log(`收到字幕 #${subtitleCount}: ${pushData.text.substring(0, 30)}...`, 'success');
+                            } else if (pushData.event === 'started') {
+                                statusDiv.innerHTML = '<p class="success">✅ 语音识别已启动，等待字幕...</p>';
+                                log('语音识别已启动', 'success');
+                            } else if (pushData.event === 'error') {
+                                log(`识别错误: ${pushData.message}`, 'error');
+                            }
+                        }
+                    } catch (error) {
+                        log(`解析消息失败: ${error.message}`, 'error');
+                    }
+                };
+
+                eventSource.onerror = function(error) {
+                    log('SSE 连接错误', 'error');
+                    statusDiv.innerHTML = '<p class="error">❌ SSE 连接错误</p>';
+                };
+
+                document.getElementById('connectBtn').disabled = true;
+                document.getElementById('disconnectBtn').disabled = false;
+
+            } catch (error) {
+                log(`连接失败: ${error.message}`, 'error');
+                statusDiv.innerHTML = `<p class="error">❌ ${error.message}</p>`;
+            }
+        }
+
+        async function startRecognition() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/sse/subscribe`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        station_code: STATION_CODE,
+                        client_id: clientId
+                    })
+                });
+
+                const result = await response.json();
+                log(`电台启动: ${result.message}`, 'success');
+            } catch (error) {
+                log(`启动电台失败: ${error.message}`, 'error');
+            }
+        }
+
+        function disconnect() {
+            if (eventSource) {
+                eventSource.close();
+                eventSource = null;
+            }
+
+            document.getElementById('connectionStatus').innerHTML = '<p>已断开连接</p>';
+            document.getElementById('connectBtn').disabled = false;
+            document.getElementById('disconnectBtn').disabled = true;
+            log('已断开连接');
+        }
+
+        // 页面加载时自动检查配置
+        window.addEventListener('DOMContentLoaded', checkConfig);
+    </script>
+</body>
+</html>

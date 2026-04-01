@@ -1,0 +1,880 @@
+##
+# You should look at the following URL's in order to grasp a solid understanding
+# of Nginx configuration files in order to fully unleash the power of Nginx.
+# https://www.nginx.com/resources/wiki/start/
+# https://www.nginx.com/resources/wiki/start/topics/tutorials/config_pitfalls/
+# https://wiki.debian.org/Nginx/DirectoryStructure
+#
+# In most cases, administrators will remove this file from sites-enabled/ and
+# leave it as reference inside of sites-available where it will continue to be
+# updated by the nginx packaging team.
+#
+# This file will automatically load configuration files provided by other
+# applications, such as Drupal or Wordpress. These applications will be made
+# available underneath a path with that package name, such as /drupal8.
+#
+# Please see /usr/share/doc/nginx-doc/examples/ for more detailed examples.
+##
+
+# Default server configuration
+#
+server {
+	listen 81;
+	listen [::]:81;
+	server_name us.xingke888.com;
+        listen 443 ssl;
+        ssl_certificate     /home/ubuntu/my_tts_words_follow_py/us.xingke888.com_nginx/us.xingke888.com_bundle.pem;
+        ssl_certificate_key /home/ubuntu/my_tts_words_follow_py/us.xingke888.com_nginx/us.xingke888.com.key;
+#	index index.html index.htm index.nginx-debian.html;
+      add_header 'Access-Control-Allow-Origin' * always;
+      add_header 'Access-Control-Allow-Credentials' 'true' always;
+      add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS, PUT, DELETE' always;
+
+
+     location ~* \.(eot|ttf|woff|woff2)$ {
+        add_header Access-Control-Allow-Origin *;
+     }
+
+	location / {
+		root /home/ubuntu/my_download_yuepin;
+                index  index.html index.htm;
+#		proxy_pass http://localhost:5000/;
+	}
+	location /web {
+                proxy_pass http://localhost:5000/;
+        }
+#	location /5001/ {
+#                proxy_pass http://localhost:5001/;
+#        }
+
+	location /5001/ {
+                proxy_pass http://localhost:5001/;
+        }
+	location /5002/ {
+                proxy_pass http://localhost:5002/;
+        }
+	location /5004/ {
+                proxy_pass http://localhost:5004/;
+        }
+
+	# pass PHP scripts to FastCGI server
+	#
+	#location ~ \.php$ {
+	#	include snippets/fastcgi-php.conf;
+	#
+	#	# With php-fpm (or other unix sockets):
+	#	fastcgi_pass unix:/run/php/php7.4-fpm.sock;
+	#	# With php-cgi (or other tcp sockets):
+	#	fastcgi_pass 127.0.0.1:9000;
+	#}
+
+	# deny access to .htaccess files, if Apache's document root
+	# concurs with nginx's one
+	#
+	#location ~ /\.ht {
+	#	deny all;
+	#}
+}
+
+
+# Virtual Host configuration for example.com
+#
+# You can move that to a different file under sites-available/ and symlink that
+# to sites-enabled/ to enable it.
+#
+#server {
+#	listen 80;
+#	listen [::]:80;
+#
+#	server_name example.com;
+#
+#	root /var/www/example.com;
+#	index index.html;
+#
+#	location / {
+#		try_files $uri $uri/ =404;
+#	}
+#}
+
+server {
+        listen 81;
+        listen [::]:81;
+        server_name little.xingke888.com;
+        listen 443 ssl;
+        ssl_certificate     /home/ubuntu/my_gendu/little.xingke888.com_nginx/little.xingke888.com_bundle.pem;
+        ssl_certificate_key /home/ubuntu/my_gendu/little.xingke888.com_nginx/little.xingke888.com.key;
+#       index index.html index.htm index.nginx-debian.html;
+      add_header 'Access-Control-Allow-Origin' * always;
+      add_header 'Access-Control-Allow-Credentials' 'true' always;
+      add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS, PUT, DELETE' always;
+
+     root /home/ubuntu/my_gendu;
+
+     location ~* \.(eot|ttf|woff|woff2)$ {
+        add_header Access-Control-Allow-Origin *;
+     }
+
+        location / {
+                root /home/ubuntu/my_gendu;
+                index  index.html index.htm;
+                proxy_pass http://localhost:5001/;
+        }
+	location /little {
+                root /home/ubuntu/my_gendu;
+                index  index.html index.htm;
+                proxy_pass http://localhost:5001/;
+                proxy_set_header X-Script-Name /little;
+        }
+        location /5002/ {
+                root /home/ubuntu/my_gendu;
+                index  index.html index.htm;
+                proxy_pass http://localhost:5002/;
+		proxy_set_header X-Script-Name /5002;
+        }
+}
+
+
+server {
+        listen 81;
+        listen [::]:81;
+        server_name www.zh-yue.com zh-yue.com;
+        listen 443 ssl;
+    ssl_certificate /etc/letsencrypt/live/zh-yue.com/fullchain.pem; # managed by Certbot
+    ssl_certificate_key /etc/letsencrypt/live/zh-yue.com/privkey.pem; # managed by Certbot
+#       index index.html index.htm index.nginx-debian.html;
+        add_header 'Access-Control-Allow-Origin' * always;
+        add_header 'Access-Control-Allow-Credentials' 'true' always;
+        add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS, PUT, DELETE' always;
+
+        location ~* \.(eot|ttf|woff|woff2)$ {
+          add_header Access-Control-Allow-Origin *;
+        }
+
+        location / {
+                root /home/ubuntu/my_download_yuepin//;
+                index  index.html index.htm;
+#               proxy_pass http://localhost:5000/;
+        }
+	location /web {
+                proxy_pass http://localhost:5000/;
+        }
+	location /little {
+                root /home/ubuntu/my_gendu;
+                index  index.html index.htm;
+                proxy_pass http://localhost:5001/;
+		proxy_set_header X-Script-Name /little;
+        }
+        location /5002/ {
+                root /home/ubuntu/my_gendu;
+                index  index.html index.htm;
+                proxy_pass http://localhost:5002/;
+                proxy_set_header X-Script-Name /5002;
+        }
+
+
+}
+
+
+server {
+
+	listen 81;
+	listen [::]:81;
+	server_name radio.xingke888.com;
+        listen 443 ssl;
+    ssl_certificate /etc/letsencrypt/live/radio.xingke888.com/fullchain.pem; # managed by Certbot
+    ssl_certificate_key /etc/letsencrypt/live/radio.xingke888.com/privkey.pem; # managed by Certbot
+
+	#location / {
+		# First attempt to serve request as file, then
+		# as directory, then fall back to displaying a 404.
+	#	try_files $uri $uri/ =404;
+	#}
+
+        location / {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+        }
+
+        location /vad {
+        proxy_pass http://localhost:5000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "Upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
+        location /vadhttp/ {
+           proxy_pass http://localhost:8080/;
+        }
+
+        location /tv/ {
+        # 反向代理到后端服务
+        proxy_pass http://localhost:3001/;
+
+         }
+	location /video/ {
+        # 反向代理到后端服务
+        proxy_pass http://localhost:5000/;
+
+        }
+
+
+        location /sse1/ {
+        # 反向代理到后端服务
+        proxy_pass http://localhost:8621/;
+
+        # 设置 SSE 所需的头部
+        proxy_set_header Host $host;
+        proxy_set_header Connection "keep-alive";
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+        # 禁用缓冲，确保事件流实时推送
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_ignore_client_abort on;
+
+        # 设置超时参数，保持长连接
+        proxy_read_timeout 3600s; # 读取超时，建议设置长一些
+        proxy_connect_timeout 60s; # 连接超时
+        proxy_send_timeout 3600s; # 发送超时
+
+        # 确保支持事件流格式
+        add_header Content-Type "text/event-stream" always;
+        add_header Cache-Control "no-cache" always;
+        add_header Connection "keep-alive" always;
+        }
+
+        location /sse2/ {
+        # 反向代理到后端服务
+        proxy_pass http://localhost:8622/;
+
+        # 设置 SSE 所需的头部
+        proxy_set_header Host $host;
+        proxy_set_header Connection "keep-alive";
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+        # 禁用缓冲，确保事件流实时推送
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_ignore_client_abort on;
+
+        # 设置超时参数，保持长连接
+        proxy_read_timeout 3600s; # 读取超时，建议设置长一些
+        proxy_connect_timeout 60s; # 连接超时
+        proxy_send_timeout 3600s; # 发送超时
+
+        # 确保支持事件流格式
+        add_header Content-Type "text/event-stream" always;
+        add_header Cache-Control "no-cache" always;
+        add_header Connection "keep-alive" always;
+        }
+
+        location /sse3/ {
+        # 反向代理到后端服务
+        proxy_pass http://localhost:8623/;
+
+        # 设置 SSE 所需的头部
+        proxy_set_header Host $host;
+        proxy_set_header Connection "keep-alive";
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+        # 禁用缓冲，确保事件流实时推送
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_ignore_client_abort on;
+
+        # 设置超时参数，保持长连接
+        proxy_read_timeout 3600s; # 读取超时，建议设置长一些
+        proxy_connect_timeout 60s; # 连接超时
+        proxy_send_timeout 3600s; # 发送超时
+
+        # 确保支持事件流格式
+        add_header Content-Type "text/event-stream" always;
+        add_header Cache-Control "no-cache" always;
+        add_header Connection "keep-alive" always;
+        }
+
+        location /sse4/ {
+        # 反向代理到后端服务
+        proxy_pass http://localhost:8624/;
+
+        # 设置 SSE 所需的头部
+        proxy_set_header Host $host;
+        proxy_set_header Connection "keep-alive";
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+        # 禁用缓冲，确保事件流实时推送
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_ignore_client_abort on;
+
+        # 设置超时参数，保持长连接
+        proxy_read_timeout 3600s; # 读取超时，建议设置长一些
+        proxy_connect_timeout 60s; # 连接超时
+        proxy_send_timeout 3600s; # 发送超时
+
+        # 确保支持事件流格式
+        add_header Content-Type "text/event-stream" always;
+        add_header Cache-Control "no-cache" always;
+        add_header Connection "keep-alive" always;
+        }
+
+        location /sse5/ {
+        # 反向代理到后端服务
+        proxy_pass http://localhost:8625/;
+
+        # 设置 SSE 所需的头部
+        proxy_set_header Host $host;
+        proxy_set_header Connection "keep-alive";
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+        # 禁用缓冲，确保事件流实时推送
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_ignore_client_abort on;
+
+        # 设置超时参数，保持长连接
+        proxy_read_timeout 3600s; # 读取超时，建议设置长一些
+        proxy_connect_timeout 60s; # 连接超时
+        proxy_send_timeout 3600s; # 发送超时
+
+        # 确保支持事件流格式
+        add_header Content-Type "text/event-stream" always;
+        add_header Cache-Control "no-cache" always;
+        add_header Connection "keep-alive" always;
+        }
+        
+        location /sse6/ {
+        # 反向代理到后端服务
+        proxy_pass http://localhost:8530/;
+
+        # 设置 SSE 所需的头部
+        proxy_set_header Host $host;
+        proxy_set_header Connection "keep-alive";
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+        # 禁用缓冲，确保事件流实时推送
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_ignore_client_abort on;
+
+        # 设置超时参数，保持长连接
+        proxy_read_timeout 3600s; # 读取超时，建议设置长一些
+        proxy_connect_timeout 60s; # 连接超时
+        proxy_send_timeout 3600s; # 发送超时
+
+        # 确保支持事件流格式
+        add_header Content-Type "text/event-stream" always;
+        add_header Cache-Control "no-cache" always;
+        add_header Connection "keep-alive" always;
+        }
+
+        location /sse7/ {
+        # 反向代理到后端服务
+        proxy_pass http://localhost:8532/;
+
+        # 设置 SSE 所需的头部
+        proxy_set_header Host $host;
+        proxy_set_header Connection "keep-alive";
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+        # 禁用缓冲，确保事件流实时推送
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_ignore_client_abort on;
+
+        # 设置超时参数，保持长连接
+        proxy_read_timeout 3600s; # 读取超时，建议设置长一些
+        proxy_connect_timeout 60s; # 连接超时
+        proxy_send_timeout 3600s; # 发送超时
+
+        # 确保支持事件流格式
+        add_header Content-Type "text/event-stream" always;
+        add_header Cache-Control "no-cache" always;
+        add_header Connection "keep-alive" always;
+        }        
+
+        location /sse8/ {
+        # 反向代理到后端服务
+        proxy_pass http://localhost:8533/;
+
+        # 设置 SSE 所需的头部
+        proxy_set_header Host $host;
+        proxy_set_header Connection "keep-alive";
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+        # 禁用缓冲，确保事件流实时推送
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_ignore_client_abort on;
+
+        # 设置超时参数，保持长连接
+        proxy_read_timeout 3600s; # 读取超时，建议设置长一些
+        proxy_connect_timeout 60s; # 连接超时
+        proxy_send_timeout 3600s; # 发送超时
+
+        # 确保支持事件流格式
+        add_header Content-Type "text/event-stream" always;
+        add_header Cache-Control "no-cache" always;
+        add_header Connection "keep-alive" always;
+        }
+	# pass PHP scripts to FastCGI server
+	#
+	#location ~ \.php$ {
+	#	include snippets/fastcgi-php.conf;
+	#
+	#	# With php-fpm (or other unix sockets):
+	#	fastcgi_pass unix:/run/php/php7.4-fpm.sock;
+	#	# With php-cgi (or other tcp sockets):
+	#	fastcgi_pass 127.0.0.1:9000;
+	#}
+
+	# deny access to .htaccess files, if Apache's document root
+	# concurs with nginx's one
+	#
+	#location ~ /\.ht {
+	#	deny all;
+	#}
+
+
+}
+
+
+server {
+
+     listen 81;
+     listen [::]:81;
+     server_name ai.xingke888.com;
+     listen 443 ssl;
+    ssl_certificate /etc/letsencrypt/live/ai.xingke888.com/fullchain.pem; # managed by Certbot
+    ssl_certificate_key /etc/letsencrypt/live/ai.xingke888.com/privkey.pem; # managed by Certbot
+     
+#     ssl_certificate     /etc/nginx/www.xingke888.com.pem;
+#     ssl_certificate_key     /etc/nginx/www.xingke888.com.pem;
+#     root /app/;
+
+      add_header 'Access-Control-Allow-Origin' * always;
+      add_header 'Access-Control-Allow-Credentials' 'true' always;
+      add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS, PUT, DELETE' always;
+     
+
+     location ~* \.(eot|ttf|woff|woff2)$ {
+        add_header Access-Control-Allow-Origin *;
+     }
+     index index.html index.htm;
+     location /sss/ {
+        index index.html;
+     }
+
+     location / {
+          #include uwsgi_params;
+          #uwsgi_pass 127.0.0.1:8889;
+          #uwsgi_read_timeout 1500000;
+          #try_files $uri $uri/ =404;
+	  proxy_pass http://localhost:8889/;
+     }
+     location /flask2/ {
+           proxy_pass http://localhost:8899/;
+        }
+     location /vad/ {
+           proxy_pass http://localhost:8552/;
+        }
+     location /new2/ {
+           proxy_pass http://localhost:8900/;
+        }
+     location /new3/ {
+	   #proxy_buffering off;
+           proxy_pass http://localhost:8901/;
+        }
+     location /new5/ {
+           #proxy_buffering off;
+           proxy_pass https://localhost:8521/;
+        }
+
+     location /qy/ {
+           proxy_pass http://localhost:8902/;
+        }
+     location /client/ {
+           proxy_pass http://localhost:3000/;
+     }
+     
+
+     location /articles/ {
+          proxy_pass http://localhost:3001/;
+     }
+     location /getocr/ {
+        add_header 'Access-Control-Allow-Origin' '*';
+        add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS, PUT, DELETE';
+        add_header 'Access-Control-Allow-Headers' 'Content-Type';
+        proxy_pass http://localhost:7000/;
+     }
+
+     location /sse/ {
+        # 反向代理到后端服务
+        proxy_pass http://localhost:8621/;
+
+        # 设置 SSE 所需的头部
+        proxy_set_header Host $host;
+        proxy_set_header Connection "keep-alive";
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+        # 禁用缓冲，确保事件流实时推送
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_ignore_client_abort on;
+
+        # 设置超时参数，保持长连接
+        proxy_read_timeout 3600s; # 读取超时，建议设置长一些
+        proxy_connect_timeout 60s; # 连接超时
+        proxy_send_timeout 3600s; # 发送超时
+
+        # 确保支持事件流格式
+        add_header Content-Type "text/event-stream" always;
+        add_header Cache-Control "no-cache" always;
+        add_header Connection "keep-alive" always;
+    }
+
+    location /sse2/ {
+        # 反向代理到后端服务
+        proxy_pass http://localhost:8622/;
+
+        # 设置 SSE 所需的头部
+        proxy_set_header Host $host;
+        proxy_set_header Connection "keep-alive";
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+        # 禁用缓冲，确保事件流实时推送
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_ignore_client_abort on;
+
+        # 设置超时参数，保持长连接
+        proxy_read_timeout 3600s; # 读取超时，建议设置长一些
+        proxy_connect_timeout 60s; # 连接超时
+        proxy_send_timeout 3600s; # 发送超时
+
+        # 确保支持事件流格式
+        add_header Content-Type "text/event-stream" always;
+        add_header Cache-Control "no-cache" always;
+        add_header Connection "keep-alive" always;
+    }
+    
+    location /sse3/ {
+        # 反向代理到后端服务
+        proxy_pass http://localhost:8623/;
+
+        # 设置 SSE 所需的头部
+        proxy_set_header Host $host;
+        proxy_set_header Connection "keep-alive";
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+        # 禁用缓冲，确保事件流实时推送
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_ignore_client_abort on;
+
+        # 设置超时参数，保持长连接
+        proxy_read_timeout 3600s; # 读取超时，建议设置长一些
+        proxy_connect_timeout 60s; # 连接超时
+        proxy_send_timeout 3600s; # 发送超时
+
+        # 确保支持事件流格式
+        add_header Content-Type "text/event-stream" always;
+        add_header Cache-Control "no-cache" always;
+        add_header Connection "keep-alive" always;
+    }
+
+    location /sse4/ {
+        # 反向代理到后端服务
+        proxy_pass http://localhost:8624/;
+
+        # 设置 SSE 所需的头部
+        proxy_set_header Host $host;
+        proxy_set_header Connection "keep-alive";
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+        # 禁用缓冲，确保事件流实时推送
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_ignore_client_abort on;
+
+        # 设置超时参数，保持长连接
+        proxy_read_timeout 3600s; # 读取超时，建议设置长一些
+        proxy_connect_timeout 60s; # 连接超时
+        proxy_send_timeout 3600s; # 发送超时
+
+        # 确保支持事件流格式
+        add_header Content-Type "text/event-stream" always;
+        add_header Cache-Control "no-cache" always;
+        add_header Connection "keep-alive" always;
+    }
+
+    location /sse5/ {
+        # 反向代理到后端服务
+        proxy_pass http://localhost:8625/;
+
+        # 设置 SSE 所需的头部
+        proxy_set_header Host $host;
+        proxy_set_header Connection "keep-alive";
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+        # 禁用缓冲，确保事件流实时推送
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_ignore_client_abort on;
+
+        # 设置超时参数，保持长连接
+        proxy_read_timeout 3600s; # 读取超时，建议设置长一些
+        proxy_connect_timeout 60s; # 连接超时
+        proxy_send_timeout 3600s; # 发送超时
+
+        # 确保支持事件流格式
+        add_header Content-Type "text/event-stream" always;
+        add_header Cache-Control "no-cache" always;
+        add_header Connection "keep-alive" always;
+    }
+
+    location /sse-en/ {
+        # 反向代理到后端服务
+        proxy_pass http://localhost:8530/;
+
+        # 设置 SSE 所需的头部
+        proxy_set_header Host $host;
+        proxy_set_header Connection "keep-alive";
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+        # 禁用缓冲，确保事件流实时推送
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_ignore_client_abort on;
+
+        # 设置超时参数，保持长连接
+        proxy_read_timeout 3600s; # 读取超时，建议设置长一些
+        proxy_connect_timeout 60s; # 连接超时
+        proxy_send_timeout 3600s; # 发送超时
+
+        # 确保支持事件流格式
+        add_header Content-Type "text/event-stream" always;
+        add_header Cache-Control "no-cache" always;
+        add_header Connection "keep-alive" always;
+    }
+    
+    location /sse6/ {
+        # 反向代理到后端服务
+        proxy_pass http://localhost:8532/;
+
+        # 设置 SSE 所需的头部
+        proxy_set_header Host $host;
+        proxy_set_header Connection "keep-alive";
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+        # 禁用缓冲，确保事件流实时推送
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_ignore_client_abort on;
+
+        # 设置超时参数，保持长连接
+        proxy_read_timeout 3600s; # 读取超时，建议设置长一些
+        proxy_connect_timeout 60s; # 连接超时
+        proxy_send_timeout 3600s; # 发送超时
+
+        # 确保支持事件流格式
+        add_header Content-Type "text/event-stream" always;
+        add_header Cache-Control "no-cache" always;
+        add_header Connection "keep-alive" always;
+    }
+     client_max_body_size 128M;	
+}
+
+
+server {
+
+     listen 81;
+     listen [::]:81;
+     server_name www.xingke888.com;
+     listen 443 ssl;
+    ssl_certificate /etc/letsencrypt/live/www.xingke888.com/fullchain.pem; # managed by Certbot
+    ssl_certificate_key /etc/letsencrypt/live/www.xingke888.com/privkey.pem; # managed by Certbot
+
+     add_header 'Access-Control-Allow-Origin' * always;
+     add_header 'Access-Control-Allow-Credentials' 'true' always;
+     add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS, PUT, DELETE' always;
+
+     location ~* \.(eot|ttf|woff|woff2)$ {
+        add_header Access-Control-Allow-Origin *;
+     }
+     index index.html index.htm;
+     location /sss/ {
+        index index.html;
+     }
+
+     location / {
+          proxy_pass http://localhost:8889/;
+     }
+     client_max_body_size 128M; 
+
+
+}
+
+
+
+server {
+
+     listen 81;
+     listen [::]:81;
+     server_name www.easy-write.com;
+     listen 443 ssl;
+    ssl_certificate /etc/letsencrypt/live/www.easy-write.com/fullchain.pem; # managed by Certbot
+    ssl_certificate_key /etc/letsencrypt/live/www.easy-write.com/privkey.pem; # managed by Certbot
+
+     add_header 'Access-Control-Allow-Origin' * always;
+     add_header 'Access-Control-Allow-Credentials' 'true' always;
+     add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS, PUT, DELETE' always;
+
+     location ~* \.(eot|ttf|woff|woff2)$ {
+        add_header Access-Control-Allow-Origin *;
+     }
+     location /policy {
+	#root /home/azureuser/flask/templates/web/;
+     	proxy_pass http://localhost:8889/?policy;
+     }
+
+     location / {
+          #proxy_pass http://localhost:8889/?from=easywrite;
+	  proxy_pass http://localhost:5000/;
+          proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $host;
+     }
+     client_max_body_size 128M;
+
+
+
+}
+
+
+
+server {
+     listen 81;
+     listen [::]:81;
+     server_name wss.xingke888.com;
+     listen 443 ssl;
+    ssl_certificate /etc/letsencrypt/live/wss.xingke888.com/fullchain.pem; # managed by Certbot
+    ssl_certificate_key /etc/letsencrypt/live/wss.xingke888.com/privkey.pem; # managed by Certbot
+
+ #    root /app/
+     #ssl_protocols TLSv1.2 TLSv1.3;
+     #ssl_ciphers HIGH:!aNULL:!MD5;
+     location /vad {
+        proxy_pass http://localhost:8551;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "Upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+     location /radio {
+        proxy_pass http://localhost:8523;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "Upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+    location /translate {
+        proxy_pass http://localhost:8531/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "Upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+    location /azure {
+        proxy_pass http://localhost:8526;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "Upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+    
+    location /sse {
+        # 反向代理到后端服务
+        proxy_pass http://localhost:8525;
+
+        # 设置 SSE 所需的头部
+        proxy_set_header Host $host;
+        proxy_set_header Connection "keep-alive";
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+        # 禁用缓冲，确保事件流实时推送
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_ignore_client_abort on;
+
+        # 设置超时参数，保持长连接
+        proxy_read_timeout 3600s; # 读取超时，建议设置长一些
+        proxy_connect_timeout 60s; # 连接超时
+        proxy_send_timeout 3600s; # 发送超时
+
+        # 确保支持事件流格式
+        add_header Content-Type "text/event-stream" always;
+        add_header Cache-Control "no-cache" always;
+        add_header Connection "keep-alive" always;
+    }
+
+
+
+}
+
+
+server {
+    if ($host = www.zh-yue.com) {
+        return 301 https://$host$request_uri;
+    } # managed by Certbot
+
+
+    if ($host = zh-yue.com) {
+        return 301 https://$host$request_uri;
+    } # managed by Certbot
+
+
+        listen 81;
+        listen [::]:81;
+        server_name v.xingke888.com www.zh-yue.com zh-yue.com;
+    return 404; # managed by Certbot
+
+}

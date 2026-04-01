@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>字幕测试 - WebSocket 原生连接</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #fff;
+        }
+        h1 {
+            text-align: center;
+            color: #4CAF50;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            background: #333;
+            border-radius: 4px;
+        }
+        .status.connected {
+            background: #2d5016;
+        }
+        .subtitle-container {
+            background: rgba(0, 0, 0, 0.8);
+            padding: 40px;
+            border-radius: 8px;
+            min-height: 200px;
+            text-align: center;
+            margin: 20px 0;
+        }
+        .subtitle-en {
+            color: #fff;
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+        .subtitle-zh {
+            color: #4CAF50;
+            font-size: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            margin: 5px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        #log {
+            background: #000;
+            color: #0f0;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎙️ 字幕测试页面</h1>
+
+    <div class="status" id="status">状态: 未连接</div>
+
+    <div>
+        <button id="startBtn" onclick="startRecognition()">启动识别</button>
+        <button id="connectBtn" onclick="connectWS()">连接 WebSocket</button>
+        <button id="disconnectBtn" onclick="disconnect()">断开连接</button>
+    </div>
+
+    <div class="subtitle-container">
+        <div class="subtitle-en" id="subtitleEn">等待字幕...</div>
+        <div class="subtitle-zh" id="subtitleZh"></div>
+    </div>
+
+    <h3>日志:</h3>
+    <div id="log"></div>
+
+    <script>
+        const STATION_CODE = 'msnbc';
+        const WS_URL = 'wss://radio.xingke888.com/centrifugo/connection/websocket';
+        const API_URL = 'https://radio.xingke888.com/api/start-recognition';
+
+        let ws = null;
+        let messageId = 0;
+
+        function log(msg) {
+            const logDiv = document.getElementById('log');
+            const time = new Date().toLocaleTimeString();
+            logDiv.innerHTML += `[${time}] ${msg}<br>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(msg);
+        }
+
+        function updateStatus(msg, type = 'info') {
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = `状态: ${msg}`;
+            statusDiv.className = `status ${type}`;
+        }
+
+        // 启动识别
+        async function startRecognition() {
+            try {
+                log('📞 调用 HTTP API 启动识别...');
+                const response = await fetch(`${API_URL}?station_code=${STATION_CODE}`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                log('✅ 识别已启动: ' + JSON.stringify(data));
+                updateStatus('识别已启动', 'connected');
+            } catch (error) {
+                log('❌ 启动识别失败: ' + error.message);
+                updateStatus('启动失败', 'error');
+            }
+        }
+
+        // 连接 WebSocket
+        function connectWS() {
+            log('🔌 连接到 WebSocket...');
+            updateStatus('正在连接...', 'info');
+
+            ws = new WebSocket(WS_URL);
+
+            ws.onopen = () => {
+                log('✅ WebSocket 已连接');
+                updateStatus('已连接', 'connected');
+
+                // 发送 connect 命令
+                const connectMsg = {
+                    id: ++messageId,
+                    connect: {}
+                };
+                ws.send(JSON.stringify(connectMsg));
+                log('📤 发送 connect 命令');
+            };
+
+            ws.onmessage = (event) => {
+                const msg = JSON.parse(event.data);
+
+                // 处理 ping
+                if (Object.keys(msg).length === 0) {
+                    ws.send(JSON.stringify({}));
+                    return;
+                }
+
+                // 处理 connect 响应
+                if (msg.connect) {
+                    log('✅ 连接成功, client_id: ' + msg.connect.client);
+
+                    // 订阅频道
+                    const subscribeMsg = {
+                        id: ++messageId,
+                        subscribe: {
+                            channel: `station:${STATION_CODE}`
+                        }
+                    };
+                    ws.send(JSON.stringify(subscribeMsg));
+                    log('📤 发送 subscribe 命令: station:' + STATION_CODE);
+                }
+
+                // 处理 subscribe 响应
+                if (msg.subscribe) {
+                    log('✅ 订阅成功');
+                    updateStatus('已订阅频道', 'connected');
+                }
+
+                // 处理推送消息
+                if (msg.push && msg.push.pub && msg.push.pub.data) {
+                    const data = msg.push.pub.data;
+
+                    if (data.event === 'recognized') {
+                        log(`📺 收到字幕: ${data.text}`);
+
+                        // 显示字幕
+                        document.getElementById('subtitleEn').textContent = data.text;
+
+                        // 提取中文翻译
+                        let zhText = '';
+                        if (data.translations && typeof data.translations === 'object') {
+                            zhText = data.translations['zh-CN'] || data.translations['zh-Hans'] || JSON.stringify(data.translations);
+                        } else if (typeof data.translations === 'string') {
+                            zhText = data.translations;
+                        }
+
+                        document.getElementById('subtitleZh').textContent = zhText;
+                    }
+                }
+
+                // 处理错误
+                if (msg.error) {
+                    log('❌ 错误: ' + JSON.stringify(msg.error));
+                    updateStatus('错误: ' + msg.error.message, 'error');
+                }
+            };
+
+            ws.onerror = (error) => {
+                log('❌ WebSocket 错误: ' + error);
+                updateStatus('连接错误', 'error');
+            };
+
+            ws.onclose = () => {
+                log('🔌 WebSocket 已断开');
+                updateStatus('已断开', 'info');
+            };
+        }
+
+        // 断开连接
+        function disconnect() {
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+            log('🔌 已断开连接');
+        }
+    </script>
+</body>
+</html>

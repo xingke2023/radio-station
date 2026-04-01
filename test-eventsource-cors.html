@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>EventSource CORS 测试</title>
+    <style>
+        body { font-family: monospace; padding: 20px; background: #1a1a1a; color: #0f0; }
+        .error { color: #f00; }
+        .success { color: #0f0; }
+        .info { color: #0ff; }
+        #log { background: #000; padding: 15px; margin-top: 10px; white-space: pre-wrap; }
+    </style>
+</head>
+<body>
+    <h1>EventSource CORS 测试</h1>
+    <button onclick="testConnect()">测试连接</button>
+    <button onclick="clearLog()">清空日志</button>
+    <div id="log"></div>
+
+    <script>
+        const logDiv = document.getElementById('log');
+        let eventSource = null;
+
+        function log(msg, type = 'info') {
+            const span = document.createElement('span');
+            span.className = type;
+            span.textContent = `[${new Date().toLocaleTimeString()}] ${msg}\n`;
+            logDiv.appendChild(span);
+            console.log(msg);
+        }
+
+        function clearLog() {
+            logDiv.innerHTML = '';
+        }
+
+        async function testConnect() {
+            logDiv.innerHTML = '';
+            log('开始测试...', 'info');
+
+            try {
+                // 步骤1: 获取 token
+                log('步骤1: 获取 token...', 'info');
+                const connectUrl = 'https://radio.xingke888.com/sse8/sse/connect?station_code=msnbc';
+
+                const response = await fetch(connectUrl);
+                log(`HTTP 状态: ${response.status}`, response.ok ? 'success' : 'error');
+
+                if (!response.ok) {
+                    log('❌ 获取 token 失败', 'error');
+                    return;
+                }
+
+                const data = await response.json();
+                log('✅ Token 获取成功', 'success');
+                log(`Token: ${data.token.substring(0, 50)}...`, 'info');
+
+                // 步骤2: 测试 EventSource 连接
+                log('\n步骤2: 建立 EventSource 连接...', 'info');
+                const sseUrl = new URL('https://radio.xingke888.com/centrifugo/connection/uni_sse');
+                sseUrl.searchParams.append('cf_connect', JSON.stringify({ token: data.token }));
+
+                log(`SSE URL (前100字符): ${sseUrl.toString().substring(0, 100)}...`, 'info');
+
+                // 检查浏览器信息
+                log(`\n浏览器信息:`, 'info');
+                log(`  User Agent: ${navigator.userAgent}`, 'info');
+                log(`  当前页面 URL: ${window.location.href}`, 'info');
+                log(`  当前域: ${window.location.origin}`, 'info');
+
+                eventSource = new EventSource(sseUrl);
+
+                eventSource.onopen = function() {
+                    log('\n✅ EventSource.onopen 触发', 'success');
+                    log(`  readyState: ${eventSource.readyState}`, 'success');
+                };
+
+                let messageCount = 0;
+                eventSource.onmessage = function(event) {
+                    messageCount++;
+
+                    if (event.data === '{}') {
+                        log(`💓 Ping #${messageCount}`, 'info');
+                        return;
+                    }
+
+                    try {
+                        const msg = JSON.parse(event.data);
+
+                        if (msg.connect) {
+                            log('\n✅ Centrifugo 连接成功！', 'success');
+                            log(`  Client ID: ${msg.connect.client}`, 'success');
+                            log(`  订阅频道: ${JSON.stringify(msg.connect.subs)}`, 'success');
+
+                            // 关闭连接
+                            setTimeout(() => {
+                                eventSource.close();
+                                log('\n✅ 测试成功！连接已关闭', 'success');
+                            }, 3000);
+                        }
+
+                        if (msg.push) {
+                            log(`📡 收到推送消息: ${JSON.stringify(msg.push).substring(0, 100)}...`, 'info');
+                        }
+                    } catch (error) {
+                        log(`❌ 解析消息失败: ${error.message}`, 'error');
+                    }
+                };
+
+                eventSource.onerror = function(event) {
+                    log('\n❌ EventSource.onerror 触发', 'error');
+                    log(`  readyState: ${eventSource.readyState}`, 'error');
+                    log(`  EventSource.CONNECTING: ${EventSource.CONNECTING}`, 'error');
+                    log(`  EventSource.OPEN: ${EventSource.OPEN}`, 'error');
+                    log(`  EventSource.CLOSED: ${EventSource.CLOSED}`, 'error');
+
+                    // 尝试获取更多错误信息
+                    if (event) {
+                        log(`  Event type: ${event.type}`, 'error');
+                        log(`  Event target: ${event.target}`, 'error');
+                    }
+
+                    if (eventSource.readyState === EventSource.CLOSED) {
+                        log('\n❌ 连接已关闭，这通常是 CORS 错误', 'error');
+                        log('请检查浏览器控制台的详细错误信息', 'error');
+                    }
+                };
+
+            } catch (error) {
+                log(`\n❌ 测试失败: ${error.message}`, 'error');
+                log(`错误堆栈: ${error.stack}`, 'error');
+            }
+        }
+    </script>
+</body>
+</html>

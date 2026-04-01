@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>实时字幕同步播放 (SSE版本)</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1600px;
+            margin: 20px auto;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #fff;
+        }
+
+        h1 {
+            text-align: center;
+            color: #4CAF50;
+            margin-bottom: 30px;
+        }
+
+        .main-content {
+            display: flex;
+            gap: 20px;
+            align-items: flex-start;
+        }
+
+        .player-container {
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+            flex: 0 0 500px;
+        }
+
+        .subtitle-container {
+            background: rgba(0, 0, 0, 0.8);
+            padding: 40px;
+            border-radius: 8px;
+            min-height: 400px;
+            text-align: center;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .subtitle-en {
+            color: #fff;
+            font-weight: bold;
+            margin-bottom: 30px;
+            font-size: 32px;
+            line-height: 1.4;
+        }
+
+        .main-subtitle-number {
+            display: inline-block;
+            background: #4CAF50;
+            color: #1a1a1a;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 24px;
+            margin-right: 15px;
+            vertical-align: middle;
+        }
+
+        .subtitle-zh {
+            color: #4CAF50;
+            font-size: 28px;
+            line-height: 1.5;
+        }
+
+        .controls {
+            margin: 20px 0;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .controls label {
+            color: #4CAF50;
+            font-weight: bold;
+        }
+
+        select {
+            padding: 10px 15px;
+            font-size: 16px;
+            background: #333;
+            color: white;
+            border: 2px solid #4CAF50;
+            border-radius: 4px;
+            cursor: pointer;
+            min-width: 250px;
+        }
+
+        select:hover {
+            background: #3a3a3a;
+        }
+
+        select:disabled {
+            background: #222;
+            border-color: #666;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+        }
+
+        button:hover {
+            background: #45a049;
+        }
+
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+
+        .status {
+            margin: 10px 0;
+            padding: 10px;
+            background: #333;
+            border-radius: 4px;
+        }
+
+        .status.connected {
+            background: #2d5016;
+        }
+
+        .status.error {
+            background: #5c1010;
+        }
+
+        .subtitle-queue {
+            margin-top: 30px;
+            font-size: 16px;
+            color: #888;
+        }
+
+        .subtitle-queue h3 {
+            color: #4CAF50;
+            font-size: 18px;
+            margin-bottom: 15px;
+            font-weight: bold;
+        }
+
+        .subtitle-item {
+            background: #333;
+            padding: 12px 15px;
+            margin: 8px 0;
+            border-radius: 4px;
+            border-left: 4px solid #4CAF50;
+            line-height: 1.6;
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+        }
+
+        .subtitle-number {
+            color: #4CAF50;
+            font-weight: bold;
+            font-size: 16px;
+            min-width: 50px;
+            flex-shrink: 0;
+        }
+
+        .subtitle-content {
+            flex: 1;
+        }
+
+        .subtitle-item strong {
+            font-size: 14px;
+            color: #aaa;
+        }
+
+        .subtitle-item.active {
+            background: #2d5016;
+            border-left-color: #8BC34A;
+        }
+
+        .subtitle-item.active .subtitle-number {
+            color: #8BC34A;
+        }
+
+        audio {
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        .time-info {
+            font-size: 14px;
+            color: #888;
+            margin-top: 10px;
+        }
+
+        .sync-offset {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .sync-offset input {
+            width: 100px;
+            padding: 5px;
+        }
+
+        .sync-offset label {
+            font-size: 14px;
+        }
+
+        h2 {
+            color: #4CAF50;
+            font-size: 18px;
+            margin-bottom: 15px;
+        }
+
+        @media (max-width: 1200px) {
+            .main-content {
+                flex-direction: column;
+            }
+
+            .player-container {
+                flex: 1;
+                width: 100%;
+            }
+
+            .subtitle-container {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>🎙️ 实时字幕同步播放 (SSE版本)</h1>
+
+    <div class="main-content">
+        <div class="player-container">
+            <h2>音频流本地播放 + SSE 字幕推送</h2>
+
+            <div class="status" id="status">
+                状态: 未连接
+            </div>
+
+            <div class="controls">
+                <label for="stationSelect">选择电台:</label>
+                <select id="stationSelect" style="padding: 10px; font-size: 16px; margin-right: 10px;">
+                    <option value="">加载中...</option>
+                </select>
+                <button id="connectBtn">连接并播放</button>
+                <button id="disconnectBtn" disabled>断开连接</button>
+            </div>
+
+            <div class="sync-offset">
+                <label for="offsetInput">字幕延迟调整 (ms):</label>
+                <input type="number" id="offsetInput" value="0" step="100" />
+                <span>(正值=字幕延迟, 负值=字幕提前)</span>
+            </div>
+
+            <audio id="audioPlayer" controls></audio>
+
+            <div class="time-info">
+                <div>音频播放时间: <span id="audioTime">0.00s</span></div>
+                <div>当前字幕偏移: <span id="currentOffset">0ms</span></div>
+            </div>
+
+            <div class="subtitle-queue">
+                <h3>字幕队列 (最近40条)</h3>
+                <div id="queueList"></div>
+            </div>
+        </div>
+
+        <div class="subtitle-container">
+            <div>
+                <div class="subtitle-en" id="subtitleEn">等待字幕...</div>
+                <div class="subtitle-zh" id="subtitleZh"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 配置
+        const API_BASE_URL = 'https://radio.xingke888.com/sse8';
+        const CENTRIFUGO_SSE_URL = 'https://radio.xingke888.com/centrifugo/connection/uni_sse';
+
+        // 电台数据
+        let stations = [];
+        let currentStation = null;
+
+        // 字幕队列
+        let subtitleQueue = [];
+        let currentSubtitleIndex = -1;
+        let eventSource = null;
+        let clientId = null;
+        let heartbeatInterval = null;
+
+        // DOM 元素
+        const audioPlayer = document.getElementById('audioPlayer');
+        const subtitleEn = document.getElementById('subtitleEn');
+        const subtitleZh = document.getElementById('subtitleZh');
+        const statusDiv = document.getElementById('status');
+        const stationSelect = document.getElementById('stationSelect');
+        const connectBtn = document.getElementById('connectBtn');
+        const disconnectBtn = document.getElementById('disconnectBtn');
+        const audioTimeSpan = document.getElementById('audioTime');
+        const currentOffsetSpan = document.getElementById('currentOffset');
+        const queueList = document.getElementById('queueList');
+        const offsetInput = document.getElementById('offsetInput');
+
+        // 加载电台列表
+        async function loadStations() {
+            try {
+                updateStatus('正在加载电台列表...', 'info');
+                const response = await fetch(`${API_BASE_URL}/api/radios`);
+                const data = await response.json();
+
+                if (data.success) {
+                    stations = data.radios;
+                    console.log('✅ 加载到电台列表:', stations);
+
+                    // 填充下拉框 - 注意API返回的字段是 id 和 url，不是 station_code 和 stream_url
+                    stationSelect.innerHTML = '<option value="">请选择电台</option>' +
+                        stations.map(station =>
+                            `<option value="${station.id}">
+                                ${station.name} ${station.subtitle ? '(' + station.subtitle + ')' : ''}
+                            </option>`
+                        ).join('');
+
+                    updateStatus('电台列表加载完成', 'info');
+                } else {
+                    updateStatus('加载电台列表失败', 'error');
+                }
+            } catch (error) {
+                console.error('❌ 加载电台列表失败:', error);
+                updateStatus('加载电台列表失败', 'error');
+                stationSelect.innerHTML = '<option value="">加载失败</option>';
+            }
+        }
+
+        // 更新状态显示
+        function updateStatus(message, type = 'info') {
+            statusDiv.textContent = `状态: ${message}`;
+            statusDiv.className = `status ${type}`;
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+
+        // 更新字幕队列显示
+        function updateQueueDisplay() {
+            const recentQueue = subtitleQueue.slice(-40);
+            queueList.innerHTML = recentQueue.map((item, idx) => {
+                const isActive = (subtitleQueue.length - 40 + idx) === currentSubtitleIndex;
+                const globalIndex = subtitleQueue.length - 40 + idx;
+                return `
+                    <div class="subtitle-item ${isActive ? 'active' : ''}">
+                        <div class="subtitle-number">#${globalIndex + 1}</div>
+                        <div class="subtitle-content">
+                            <strong>Offset: ${item.offset.toFixed(2)}ms | Duration: ${item.duration.toFixed(2)}ms</strong><br/>
+                            ${item.text}<br/>
+                            <span style="color: #4CAF50;">${item.translation}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // 根据音频播放时间更新字幕
+        function updateSubtitle() {
+            if (subtitleQueue.length === 0 || !audioPlayer.currentTime) return;
+
+            const userOffset = parseFloat(offsetInput.value) || 0;
+            const currentTimeMs = audioPlayer.currentTime * 1000;
+            const adjustedTimeMs = currentTimeMs - userOffset;
+
+            let foundIndex = -1;
+            for (let i = 0; i < subtitleQueue.length; i++) {
+                const subtitle = subtitleQueue[i];
+                const startTime = subtitle.offset;
+                const endTime = subtitle.offset + subtitle.duration;
+
+                if (adjustedTimeMs >= startTime && adjustedTimeMs < endTime) {
+                    foundIndex = i;
+                    break;
+                }
+            }
+
+            if (foundIndex !== -1 && foundIndex !== currentSubtitleIndex) {
+                currentSubtitleIndex = foundIndex;
+                const subtitle = subtitleQueue[foundIndex];
+
+                subtitleEn.innerHTML = `<span class="main-subtitle-number">#${foundIndex + 1}</span> ${subtitle.text}`;
+                subtitleZh.textContent = subtitle.translation;
+                currentOffsetSpan.textContent = `${subtitle.offset.toFixed(2)}ms`;
+
+                updateQueueDisplay();
+                console.log(`📺 显示字幕 [${foundIndex}]: ${subtitle.text} (offset: ${subtitle.offset}ms)`);
+            }
+
+            audioTimeSpan.textContent = `${audioPlayer.currentTime.toFixed(2)}s`;
+        }
+
+        // 连接到 SSE
+        async function connect() {
+            // 检查是否选择了电台
+            const selectedCode = stationSelect.value;
+            if (!selectedCode) {
+                updateStatus('请先选择电台', 'error');
+                return;
+            }
+
+            // 获取选中的电台信息 - API返回的字段是 id，不是 station_code
+            currentStation = stations.find(s => s.id === selectedCode);
+            if (!currentStation) {
+                updateStatus('电台信息不存在', 'error');
+                return;
+            }
+
+            console.log('🎙️ 准备连接电台:', currentStation);
+            updateStatus(`正在连接 ${currentStation.name}...`, 'info');
+
+            // 清空之前的字幕
+            subtitleQueue = [];
+            currentSubtitleIndex = -1;
+            updateQueueDisplay();
+
+            try {
+                // 步骤1: 获取 token - 使用 id 字段作为 station_code
+                const connectUrl = `${API_BASE_URL}/sse/connect?station_code=${currentStation.id}`;
+                const response = await fetch(connectUrl);
+
+                if (!response.ok) {
+                    updateStatus('获取连接信息失败', 'error');
+                    return;
+                }
+
+                const data = await response.json();
+                console.log('✅ 获取到连接信息:', data);
+
+                // 步骤2: 建立 SSE 连接
+                updateStatus('正在建立 SSE 连接...', 'info');
+
+                const sseUrl = new URL(CENTRIFUGO_SSE_URL);
+                sseUrl.searchParams.append('cf_connect', JSON.stringify({
+                    token: data.token
+                }));
+
+                eventSource = new EventSource(sseUrl);
+
+                eventSource.onopen = function() {
+                    updateStatus('SSE 连接已建立', 'connected');
+                };
+
+                eventSource.onmessage = function(event) {
+                    if (event.data === '{}') {
+                        // Ping 消息
+                        return;
+                    }
+
+                    try {
+                        const msg = JSON.parse(event.data);
+
+                        // 连接成功
+                        if (msg.connect) {
+                            clientId = msg.connect.client;
+                            console.log('✅ Centrifugo 连接成功, Client ID:', clientId);
+                            updateStatus(`已连接到 ${currentStation.name}`, 'connected');
+
+                            // 步骤3: 调用订阅端点启动电台，订阅成功后启动心跳
+                            startStation().then(() => {
+                                // 订阅成功后启动心跳（每 30 秒发送一次）
+                                startHeartbeat();
+                            }).catch(err => {
+                                console.error('订阅失败，不启动心跳:', err);
+                            });
+                        }
+
+                        // 收到字幕数据 - 修复: Centrifugo uni_sse 格式是 msg.pub 而不是 msg.push.pub
+                        if (msg.pub && msg.pub.data) {
+                            const pushData = msg.pub.data;
+
+                            if (pushData.event === 'recognized') {
+                                console.log('📥 收到字幕:', pushData);
+
+                                // 修复: 提取中文翻译
+                                const translation = pushData.translations && pushData.translations['zh-CN']
+                                                  ? pushData.translations['zh-CN']
+                                                  : '';
+
+                                const subtitle = {
+                                    text: pushData.text,
+                                    translation: translation,
+                                    offset: pushData.offset,
+                                    duration: pushData.duration,
+                                    timestamp: pushData.timestamp
+                                };
+
+                                subtitleQueue.push(subtitle);
+                                updateQueueDisplay();
+
+                                console.log(`✅ 字幕已加入队列 [${subtitleQueue.length - 1}]: offset=${subtitle.offset}ms, 翻译: ${translation.substring(0, 30)}...`);
+                            }
+                            else if (pushData.event === 'recognizing') {
+                                console.log('🎤 识别中:', pushData.text);
+                            }
+                            else if (pushData.event === 'started') {
+                                console.log('🚀 语音识别已启动');
+                                updateStatus(`${currentStation.name} 识别已启动，等待字幕...`, 'connected');
+                            }
+                            else if (pushData.event === 'reconnecting') {
+                                const retryMsg = pushData.isAudioSourceError
+                                    ? `⚠️ 音频源连接失败，正在重试 (${pushData.retryCount}/${pushData.maxRetries})...`
+                                    : `🔄 连接中断，正在重试 (${pushData.retryCount}/${pushData.maxRetries})...`;
+                                console.log(retryMsg);
+                                updateStatus(retryMsg, 'info');
+                            }
+                            else if (pushData.event === 'audioSourceFailed') {
+                                console.error('❌ 音频源连接失败:', pushData);
+                                updateStatus(`❌ ${pushData.message}: ${pushData.details}`, 'error');
+
+                                // 显示详细错误信息
+                                subtitleEn.textContent = '❌ 音频源无法连接';
+                                subtitleZh.textContent = `${pushData.message}\n${pushData.details}`;
+
+                                // 自动断开连接
+                                setTimeout(() => {
+                                    disconnect();
+                                }, 3000);
+                            }
+                        }
+                    } catch (error) {
+                        console.error('❌ 解析消息失败:', error);
+                    }
+                };
+
+                eventSource.onerror = function(error) {
+                    console.error('❌ SSE 错误:', error);
+                    updateStatus('SSE 连接错误', 'error');
+
+                    if (eventSource.readyState === EventSource.CLOSED) {
+                        eventSource.close();
+                        connectBtn.disabled = false;
+                        disconnectBtn.disabled = true;
+                        stationSelect.disabled = false;
+                    }
+                };
+
+                // 加载音频流 - 使用 url 字段
+                audioPlayer.src = currentStation.url;
+                audioPlayer.play().catch(err => {
+                    console.error('音频播放失败:', err);
+                    updateStatus('音频播放失败，请手动点击播放按钮', 'error');
+                });
+
+                connectBtn.disabled = true;
+                disconnectBtn.disabled = false;
+                stationSelect.disabled = true;
+
+            } catch (error) {
+                console.error('❌ 连接失败:', error);
+                updateStatus(`连接失败: ${error.message}`, 'error');
+            }
+        }
+
+        // 启动电台
+        async function startStation() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/sse/subscribe`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        station_code: currentStation.id,
+                        client_id: clientId
+                    })
+                });
+
+                const result = await response.json();
+                console.log('✅ 电台启动:', result.message);
+                updateStatus(`${currentStation.name} 已启动，等待字幕...`, 'connected');
+            } catch (error) {
+                console.error('❌ 启动电台失败:', error);
+                updateStatus('启动电台失败', 'error');
+            }
+        }
+
+        // 启动心跳
+        function startHeartbeat() {
+            // 清除之前的心跳定时器（如果有）
+            if (heartbeatInterval) {
+                clearInterval(heartbeatInterval);
+            }
+
+            // 立即发送第一次心跳
+            sendHeartbeat();
+
+            // 每 30 秒发送一次心跳
+            heartbeatInterval = setInterval(() => {
+                sendHeartbeat();
+            }, 30000);
+
+            console.log('💓 心跳已启动（每 30 秒）');
+        }
+
+        // 发送心跳
+        async function sendHeartbeat() {
+            if (!clientId || !currentStation) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/client/heartbeat`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        client_id: clientId,
+                        channel: `station:${currentStation.id}`
+                    })
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    console.log('💓 心跳发送成功');
+                } else {
+                    console.warn('⚠️ 心跳响应异常:', result);
+                }
+            } catch (error) {
+                console.error('❌ 心跳发送失败:', error);
+            }
+        }
+
+        // 停止心跳
+        function stopHeartbeat() {
+            if (heartbeatInterval) {
+                clearInterval(heartbeatInterval);
+                heartbeatInterval = null;
+                console.log('💔 心跳已停止');
+            }
+        }
+
+        // 断开连接
+        async function disconnect() {
+            // 通知服务器主动断开
+            if (clientId && currentStation) {
+                try {
+                    await fetch(`${API_BASE_URL}/api/client/disconnect`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            client_id: clientId,
+                            channel: `station:${currentStation.id}`
+                        })
+                    });
+                    console.log('✅ 已通知服务器断开连接');
+                } catch (error) {
+                    console.error('⚠️ 通知服务器断开失败:', error);
+                }
+            }
+
+            // 停止心跳
+            stopHeartbeat();
+
+            if (eventSource) {
+                eventSource.close();
+                eventSource = null;
+            }
+
+            audioPlayer.pause();
+            audioPlayer.src = '';
+
+            subtitleQueue = [];
+            currentSubtitleIndex = -1;
+            clientId = null;
+            currentStation = null;
+
+            subtitleEn.textContent = '已断开连接';
+            subtitleZh.textContent = '';
+            updateQueueDisplay();
+
+            updateStatus('已断开连接', 'info');
+            connectBtn.disabled = false;
+            disconnectBtn.disabled = true;
+            stationSelect.disabled = false;
+        }
+
+        // 定时更新字幕（每100ms检查一次）
+        setInterval(updateSubtitle, 100);
+
+        // 页面加载时加载电台列表
+        window.addEventListener('DOMContentLoaded', () => {
+            loadStations();
+        });
+
+        // 按钮事件
+        connectBtn.addEventListener('click', connect);
+        disconnectBtn.addEventListener('click', disconnect);
+
+        // 偏移量输入变化时重新同步
+        offsetInput.addEventListener('change', () => {
+            console.log(`⚙️ 字幕偏移调整为: ${offsetInput.value}ms`);
+            currentSubtitleIndex = -1;
+        });
+    </script>
+
+    <hr style="margin: 40px 0; border-color: #444;">
+
+    <div style="background: #2a2a2a; padding: 20px; border-radius: 8px;">
+        <h2>📖 使用说明 - SSE 版本</h2>
+        <h3>技术方案</h3>
+        <ul>
+            <li><strong>连接方式</strong>: Server-Sent Events (SSE) - 单向服务器推送</li>
+            <li><strong>音频播放</strong>: 客户端直接播放原始音频流</li>
+            <li><strong>字幕同步</strong>: 根据 Azure 返回的时间戳 (offset) 同步显示字幕</li>
+        </ul>
+
+        <h3>工作流程</h3>
+        <ol>
+            <li>调用 <code>/sse/connect</code> 获取连接 token</li>
+            <li>使用 token 连接 SSE 端点</li>
+            <li>连接成功后调用 <code>/sse/subscribe</code> 启动电台</li>
+            <li>通过 SSE 实时接收字幕数据</li>
+            <li>根据音频播放时间匹配显示字幕</li>
+        </ol>
+
+        <h3>优势</h3>
+        <ul>
+            <li>✅ 标准 HTTP 协议，无需 WebSocket</li>
+            <li>✅ 自动重连机制</li>
+            <li>✅ 更好的防火墙兼容性</li>
+            <li>✅ 低延迟字幕推送</li>
+        </ul>
+    </div>
+</body>
+</html>

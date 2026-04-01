@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>简化版字幕测试</title>
+    <script src="https://cdn.jsdelivr.net/npm/centrifuge@5/dist/centrifuge.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 900px;
+            margin: 30px auto;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #fff;
+        }
+        h1 { color: #4CAF50; text-align: center; }
+        .container {
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        button {
+            padding: 12px 24px;
+            font-size: 16px;
+            cursor: pointer;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            margin: 5px;
+        }
+        button:hover { background: #45a049; }
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+        .log {
+            background: #000;
+            color: #0f0;
+            padding: 15px;
+            border-radius: 4px;
+            height: 400px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            margin-top: 15px;
+        }
+        .subtitle-display {
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border-radius: 8px;
+            min-height: 80px;
+            text-align: center;
+            margin: 20px 0;
+        }
+        .subtitle-en {
+            color: #fff;
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .subtitle-zh {
+            color: #4CAF50;
+            font-size: 18px;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            text-align: center;
+            font-weight: bold;
+        }
+        .status.info { background: #2196F3; }
+        .status.success { background: #4CAF50; }
+        .status.error { background: #f44336; }
+    </style>
+</head>
+<body>
+    <h1>🎙️ 简化版字幕同步测试</h1>
+
+    <div class="container">
+        <div id="status" class="status info">未连接</div>
+
+        <button id="connectBtn">连接 WebSocket</button>
+        <button id="disconnectBtn" disabled>断开连接</button>
+        <button id="clearLogBtn">清空日志</button>
+    </div>
+
+    <div class="subtitle-display">
+        <div class="subtitle-en" id="subtitleEn">等待字幕...</div>
+        <div class="subtitle-zh" id="subtitleZh"></div>
+    </div>
+
+    <div class="container">
+        <h3>📋 连接日志</h3>
+        <div class="log" id="log"></div>
+    </div>
+
+    <script>
+        // 配置
+        const WS_URL = 'wss://radio.xingke888.com/centrifugo/connection/websocket';
+        const STATION_CODE = 'cnnnews';
+
+        // 状态
+        let centrifuge = null;
+        let sub = null;
+
+        // DOM 元素
+        const statusDiv = document.getElementById('status');
+        const logDiv = document.getElementById('log');
+        const subtitleEn = document.getElementById('subtitleEn');
+        const subtitleZh = document.getElementById('subtitleZh');
+        const connectBtn = document.getElementById('connectBtn');
+        const disconnectBtn = document.getElementById('disconnectBtn');
+        const clearLogBtn = document.getElementById('clearLogBtn');
+
+        // 添加日志
+        function log(message, color = '#0f0') {
+            const time = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.style.color = color;
+            entry.textContent = `[${time}] ${message}`;
+            logDiv.appendChild(entry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(message);
+        }
+
+        // 更新状态
+        function updateStatus(message, type = 'info') {
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+        }
+
+        // 连接
+        function connect() {
+            log('========================================', '#ff0');
+            log('开始连接测试', '#ff0');
+            log(`WebSocket URL: ${WS_URL}`, '#fff');
+            log(`电台代码: ${STATION_CODE}`, '#fff');
+            log('========================================', '#ff0');
+
+            updateStatus('正在连接...', 'info');
+
+            try {
+                // 检查 Centrifuge 库是否加载
+                if (typeof Centrifuge === 'undefined') {
+                    throw new Error('Centrifuge 库未加载！请检查 CDN 连接');
+                }
+
+                log('✅ Centrifuge 库已加载', '#0f0');
+
+                // 创建客户端
+                centrifuge = new Centrifuge(WS_URL, {
+                    debug: true
+                });
+
+                log('✅ Centrifuge 客户端已创建', '#0f0');
+
+                // 监听所有事件
+                centrifuge.on('connecting', (ctx) => {
+                    log('⏳ 正在建立连接...', '#ff0');
+                    updateStatus('正在建立连接...', 'info');
+                });
+
+                centrifuge.on('connected', (ctx) => {
+                    log('========================================', '#0f0');
+                    log('✅✅✅ WebSocket 连接成功！', '#0f0');
+                    log(`Client ID: ${ctx.client}`, '#0f0');
+                    log(`Transport: ${ctx.transport}`, '#0f0');
+                    log('========================================', '#0f0');
+                    updateStatus('已连接 - 准备订阅', 'success');
+
+                    // 订阅频道
+                    setTimeout(() => {
+                        log(`📡 准备订阅频道: station:${STATION_CODE}`, '#ff0');
+
+                        sub = centrifuge.newSubscription(`station:${STATION_CODE}`);
+
+                        sub.on('subscribing', (ctx) => {
+                            log('⏳ 正在订阅频道...', '#ff0');
+                        });
+
+                        sub.on('subscribed', (ctx) => {
+                            log('========================================', '#0f0');
+                            log('✅✅✅ 频道订阅成功！', '#0f0');
+                            log('等待字幕数据...', '#0f0');
+                            log('========================================', '#0f0');
+                            updateStatus('已订阅 - 等待字幕', 'success');
+                        });
+
+                        sub.on('error', (ctx) => {
+                            log(`❌ 订阅错误: ${ctx.message}`, '#f00');
+                            updateStatus(`订阅错误: ${ctx.message}`, 'error');
+                        });
+
+                        sub.on('publication', (ctx) => {
+                            const data = ctx.data;
+
+                            log('📥 收到消息', '#0ff');
+                            log(`   事件类型: ${data.event}`, '#0ff');
+
+                            if (data.event === 'recognized') {
+                                log('========================================', '#0f0');
+                                log('📺 收到字幕（recognized）', '#0f0');
+                                log(`   英文: ${data.text}`, '#fff');
+                                log(`   中文: ${data.translations}`, '#fff');
+                                log(`   Offset: ${data.offset}ms`, '#ff0');
+                                log(`   Duration: ${data.duration}ms`, '#ff0');
+                                log('========================================', '#0f0');
+
+                                // 显示字幕
+                                subtitleEn.textContent = data.text;
+                                subtitleZh.textContent = data.translations;
+
+                                // 验证时间戳
+                                if (data.offset === undefined || data.duration === undefined) {
+                                    log('⚠️ 警告: 字幕缺少时间戳！', '#f00');
+                                }
+                            } else if (data.event === 'recognizing') {
+                                log(`🎤 识别中: ${data.text}`, '#888');
+                            } else if (data.event === 'started') {
+                                log('🚀 识别服务已启动', '#0f0');
+                            }
+                        });
+
+                        // 开始订阅
+                        log('🚀 发起订阅请求...', '#ff0');
+                        sub.subscribe();
+
+                    }, 500);
+                });
+
+                centrifuge.on('disconnected', (ctx) => {
+                    log('========================================', '#f00');
+                    log('❌ WebSocket 已断开', '#f00');
+                    log(`原因: ${ctx.reason}`, '#f00');
+                    log('========================================', '#f00');
+                    updateStatus('已断开连接', 'error');
+                    connectBtn.disabled = false;
+                    disconnectBtn.disabled = true;
+                });
+
+                centrifuge.on('error', (ctx) => {
+                    log(`❌ 连接错误: ${ctx.message || '未知错误'}`, '#f00');
+                    log(`错误详情: ${JSON.stringify(ctx)}`, '#f00');
+                    updateStatus(`错误: ${ctx.message}`, 'error');
+                });
+
+                // 发起连接
+                log('🚀 发起 WebSocket 连接...', '#ff0');
+                centrifuge.connect();
+
+                connectBtn.disabled = true;
+                disconnectBtn.disabled = false;
+
+            } catch (error) {
+                log(`❌ 初始化失败: ${error.message}`, '#f00');
+                log(`错误堆栈: ${error.stack}`, '#f00');
+                updateStatus(`初始化失败: ${error.message}`, 'error');
+            }
+        }
+
+        // 断开连接
+        function disconnect() {
+            log('🔌 断开连接...', '#ff0');
+
+            if (sub) {
+                sub.unsubscribe();
+                sub = null;
+            }
+
+            if (centrifuge) {
+                centrifuge.disconnect();
+                centrifuge = null;
+            }
+
+            updateStatus('已断开', 'info');
+            subtitleEn.textContent = '已断开连接';
+            subtitleZh.textContent = '';
+
+            connectBtn.disabled = false;
+            disconnectBtn.disabled = true;
+        }
+
+        // 清空日志
+        function clearLog() {
+            logDiv.innerHTML = '';
+            log('日志已清空', '#0f0');
+        }
+
+        // 绑定按钮事件
+        connectBtn.addEventListener('click', connect);
+        disconnectBtn.addEventListener('click', disconnect);
+        clearLogBtn.addEventListener('click', clearLog);
+
+        // 页面加载提示
+        log('页面已加载，点击"连接 WebSocket"开始测试', '#ff0');
+        log(`测试地址: ${WS_URL}`, '#fff');
+        log(`电台代码: ${STATION_CODE}`, '#fff');
+    </script>
+</body>
+</html>

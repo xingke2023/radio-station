@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SSE 快速测试</title>
+<style>
+body { font-family: monospace; padding: 20px; background: #1a1a1a; color: #0f0; }
+button { padding: 10px 20px; font-size: 16px; }
+#log { background: #000; padding: 15px; margin-top: 10px; white-space: pre-wrap; }
+.error { color: #f00; }
+.success { color: #0f0; }
+.info { color: #0ff; }
+</style>
+</head>
+<body>
+<h1>🔍 SSE 快速连接测试</h1>
+<button onclick="runTest()">开始测试</button>
+<div id="log"></div>
+
+<script>
+const logDiv = document.getElementById('log');
+
+function log(msg, type = 'info') {
+    const span = document.createElement('span');
+    span.className = type;
+    span.textContent = `[${new Date().toLocaleTimeString()}] ${msg}\n`;
+    logDiv.appendChild(span);
+    console.log(msg);
+}
+
+async function runTest() {
+    logDiv.innerHTML = '';
+    log('========== 开始测试 ==========', 'info');
+
+    try {
+        // 测试 1: 获取 token
+        log('步骤1: 获取连接 token...', 'info');
+        const connectUrl = 'https://radio.xingke888.com/sse8/sse/connect?station_code=msnbc';
+        log(`URL: ${connectUrl}`, 'info');
+
+        const response = await fetch(connectUrl);
+        log(`HTTP 状态: ${response.status} ${response.statusText}`, response.ok ? 'success' : 'error');
+
+        if (!response.ok) {
+            log('❌ 获取 token 失败', 'error');
+            return;
+        }
+
+        const data = await response.json();
+        log(`✅ Token 获取成功`, 'success');
+        log(`频道: ${data.channel}`, 'info');
+        log(`Token 前30字符: ${data.token.substring(0, 30)}...`, 'info');
+
+        // 测试 2: 连接 EventSource
+        log('\n步骤2: 建立 EventSource 连接...', 'info');
+        const sseUrl = new URL('https://radio.xingke888.com/centrifugo/connection/uni_sse');
+        sseUrl.searchParams.append('cf_connect', JSON.stringify({ token: data.token }));
+        log(`SSE URL (前100字符): ${sseUrl.toString().substring(0, 100)}...`, 'info');
+
+        const eventSource = new EventSource(sseUrl);
+
+        eventSource.onopen = function() {
+            log('✅ EventSource.onopen 触发 - 连接已建立', 'success');
+        };
+
+        let connected = false;
+        eventSource.onmessage = function(event) {
+            if (event.data === '{}') {
+                log('💓 收到 ping', 'info');
+                return;
+            }
+
+            try {
+                const msg = JSON.parse(event.data);
+
+                if (msg.connect && !connected) {
+                    connected = true;
+                    log('✅ Centrifugo 连接成功！', 'success');
+                    log(`Client ID: ${msg.connect.client}`, 'success');
+                    log(`订阅频道: ${JSON.stringify(msg.connect.subs)}`, 'success');
+                    log('\n🎉 测试成功！所有连接正常工作', 'success');
+
+                    // 5秒后关闭
+                    setTimeout(() => {
+                        eventSource.close();
+                        log('\n测试完成，连接已关闭', 'info');
+                    }, 5000);
+                }
+            } catch (error) {
+                log(`❌ 解析消息失败: ${error.message}`, 'error');
+            }
+        };
+
+        eventSource.onerror = function(error) {
+            log(`❌ EventSource.onerror 触发`, 'error');
+            log(`ReadyState: ${eventSource.readyState}`, 'error');
+
+            if (eventSource.readyState === EventSource.CONNECTING) {
+                log('状态: 正在重连...', 'info');
+            } else if (eventSource.readyState === EventSource.CLOSED) {
+                log('状态: 连接已关闭', 'error');
+            }
+
+            if (eventSource.readyState === EventSource.CLOSED) {
+                eventSource.close();
+            }
+        };
+
+        // 超时保护
+        setTimeout(() => {
+            if (!connected) {
+                log('\n⏱️ 超时：30秒内未收到连接确认', 'error');
+                log('可能的原因：', 'error');
+                log('  1. Centrifugo 服务未运行', 'error');
+                log('  2. Token 无效', 'error');
+                log('  3. 网络连接问题', 'error');
+                eventSource.close();
+            }
+        }, 30000);
+
+    } catch (error) {
+        log(`\n❌ 测试失败: ${error.message}`, 'error');
+        log(`错误类型: ${error.name}`, 'error');
+        if (error.stack) {
+            log(`错误堆栈:\n${error.stack}`, 'error');
+        }
+    }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SSE 修复测试</title>
+    <style>
+        body {
+            font-family: monospace;
+            background: #1a1a1a;
+            color: #0f0;
+            padding: 20px;
+        }
+        .log { margin: 5px 0; }
+        .error { color: #f00; }
+        .success { color: #0f0; }
+        .info { color: #ff0; }
+    </style>
+</head>
+<body>
+    <h1>SSE 字幕接收测试</h1>
+    <div id="log"></div>
+
+    <script>
+        const log = (msg, type = 'info') => {
+            const div = document.createElement('div');
+            div.className = `log ${type}`;
+            div.textContent = `[${new Date().toISOString().substring(11, 23)}] ${msg}`;
+            document.getElementById('log').appendChild(div);
+            console.log(msg);
+        };
+
+        async function test() {
+            try {
+                // 步骤1: 获取 token
+                log('📡 获取连接信息...', 'info');
+                const response = await fetch('https://radio.xingke888.com/sse8/sse/connect?station_code=msnbc');
+                const data = await response.json();
+                log('✅ Token 获取成功', 'success');
+
+                // 步骤2: 建立 SSE 连接
+                const sseUrl = new URL(data.sse_url);
+                sseUrl.searchParams.append('cf_connect', JSON.stringify({ token: data.token }));
+
+                log('🔌 建立 SSE 连接...', 'info');
+                const eventSource = new EventSource(sseUrl);
+
+                eventSource.onopen = () => {
+                    log('✅ SSE 连接已建立', 'success');
+                };
+
+                eventSource.onmessage = (event) => {
+                    if (event.data === '{}') return; // ping
+
+                    try {
+                        const msg = JSON.parse(event.data);
+
+                        // 连接成功
+                        if (msg.connect) {
+                            log(`✅ Centrifugo 连接成功: ${msg.connect.client}`, 'success');
+
+                            // 调用订阅端点
+                            fetch('https://radio.xingke888.com/sse8/sse/subscribe', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    station_code: 'msnbc',
+                                    client_id: msg.connect.client
+                                })
+                            }).then(() => {
+                                log('✅ 电台启动请求已发送', 'success');
+                            });
+                        }
+
+                        // 收到数据 - 使用修复后的路径
+                        if (msg.pub && msg.pub.data) {
+                            const pushData = msg.pub.data;
+
+                            if (pushData.event === 'recognized') {
+                                const translation = pushData.translations && pushData.translations['zh-CN']
+                                                  ? pushData.translations['zh-CN']
+                                                  : '(无翻译)';
+
+                                log(`📺 字幕: ${pushData.text}`, 'success');
+                                log(`   翻译: ${translation}`, 'success');
+                                log(`   时间: offset=${pushData.offset}ms, duration=${pushData.duration}ms`, 'info');
+                            }
+                            else if (pushData.event === 'started') {
+                                log('🚀 语音识别已启动', 'success');
+                            }
+                            else if (pushData.event === 'heartbeat') {
+                                log('💓 心跳', 'info');
+                            }
+                        }
+                    } catch (error) {
+                        log(`❌ 解析错误: ${error.message}`, 'error');
+                    }
+                };
+
+                eventSource.onerror = (error) => {
+                    log('❌ SSE 连接错误', 'error');
+                };
+
+            } catch (error) {
+                log(`❌ 测试失败: ${error.message}`, 'error');
+            }
+        }
+
+        // 启动测试
+        test();
+    </script>
+</body>
+</html>

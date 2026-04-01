@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>英文面试实时翻译工具</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: #0f172a; color: #e2e8f0;
+    min-height: 100vh; display: flex; flex-direction: column;
+    align-items: center; padding: 20px 16px 80px;
+  }
+
+  /* Header */
+  .header {
+    display: flex; align-items: center; gap: 14px;
+    width: 98%; margin-bottom: 18px;
+  }
+  .header-title { flex: 1; }
+  .header-title h1 { font-size: 1.15rem; font-weight: 700; color: #f1f5f9; }
+  .header-title p { font-size: 0.75rem; color: #64748b; margin-top: 2px; }
+
+  .mic-btn {
+    width: 52px; height: 52px; border-radius: 50%; border: none;
+    background: #3b82f6; color: white; font-size: 1.4rem; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 4px 16px rgba(59,130,246,0.4); flex-shrink: 0;
+    transition: background 0.2s;
+  }
+  .mic-btn:hover { background: #2563eb; }
+  .mic-btn.active {
+    background: #ef4444; animation: pulse 1.2s infinite;
+    box-shadow: 0 4px 16px rgba(239,68,68,0.5);
+  }
+  .mic-btn:disabled { background: #334155; cursor: not-allowed; box-shadow: none; animation: none; }
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.08); }
+  }
+
+  .status-bar {
+    font-size: 0.75rem; padding: 5px 10px; border-radius: 6px;
+    background: #1e293b; color: #94a3b8; flex-shrink: 0;
+  }
+  .status-bar.error { color: #f87171; background: #3b1c1c; }
+  .status-bar.ready { color: #34d399; background: #0f2d20; }
+
+  /* Layout */
+  .main-layout {
+    display: flex; gap: 14px; width: 98%; flex: 1;
+  }
+  .left-col { display: flex; flex-direction: column; gap: 12px; flex: 1; min-width: 0; }
+  .right-col { display: flex; flex-direction: column; gap: 12px; flex: 1; min-width: 0; }
+
+  .panel {
+    background: #1e293b; border-radius: 12px; padding: 14px 16px;
+    display: flex; flex-direction: column;
+  }
+  .panel-label {
+    font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.1em; margin-bottom: 10px; flex-shrink: 0;
+  }
+  .panel-content {
+    font-size: 1rem; line-height: 1.75; overflow-y: auto; height: 200px;
+  }
+
+  #en-panel { border-left: 3px solid #3b82f6; }
+  #en-panel .panel-label { color: #60a5fa; }
+  #zh-panel { border-left: 3px solid #06b6d4; }
+  #zh-panel .panel-label { color: #22d3ee; }
+
+  .interim { color: #64748b; font-style: italic; }
+  .final { color: #f1f5f9; }
+  .interim-translate { color: #7dd3fc; font-style: italic; }
+  .final-translate { color: #bfdbfe; }
+  .placeholder { color: #334155; font-size: 0.88rem; }
+  .num { display: inline-block; min-width: 1.8em; margin-right: 6px; color: #334155; font-size: 0.75rem; text-align: right; user-select: none; }
+  .final.c0 { color: #f1f5f9; }
+  .final.c1 { color: #94a3b8; }
+  .final-translate.c0 { color: #bfdbfe; }
+  .final-translate.c1 { color: #67e8f9; }
+
+  /* AI panel */
+  .ai-panel {
+    background: #1a1230; border-radius: 12px; border-left: 3px solid #7c3aed;
+    padding: 14px 16px; flex: 1; overflow-y: auto; min-height: 160px;
+  }
+  .ai-panel-label {
+    font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.1em; color: #a78bfa; margin-bottom: 10px;
+  }
+  .ai-answer { font-size: 1.05rem; line-height: 1.85; color: #e2e8f0; white-space: pre-wrap; }
+  .ai-loading { color: #64748b; font-style: italic; font-size: 0.9rem; }
+
+  /* Bottom action bar */
+  .action-bar {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: #0f172a; border-top: 1px solid #1e293b;
+    display: flex; align-items: center; justify-content: center;
+    gap: 12px; padding: 12px 20px;
+    z-index: 100;
+  }
+  .action-bar .spacer { flex: 1; }
+
+  .btn {
+    padding: 9px 20px; border-radius: 8px; border: none;
+    font-size: 0.85rem; cursor: pointer; transition: background 0.2s; white-space: nowrap;
+  }
+  .btn-ai { background: #7c3aed; color: white; }
+  .btn-ai:hover { background: #6d28d9; }
+  .btn-ai:disabled { background: #334155; cursor: not-allowed; }
+  .btn-clear { background: #1e293b; color: #94a3b8; border: 1px solid #334155; }
+  .btn-clear:hover { background: #ef4444; color: white; border-color: #ef4444; }
+
+  .interview-tag {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: #1e293b; border: 1px solid #334155; border-radius: 20px;
+    padding: 4px 12px; font-size: 0.72rem; color: #64748b;
+  }
+  .interview-tag span { color: #a78bfa; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <button class="mic-btn" id="micBtn" disabled>🎤</button>
+  <div class="header-title">
+    <h1>英文面试实时翻译工具</h1>
+    <p>Real-time English → Chinese translation &amp; AI answer assistant</p>
+  </div>
+  <div class="status-bar" id="status">Loading SDK...</div>
+</div>
+
+<div class="main-layout">
+  <!-- Left: EN + ZH -->
+  <div class="left-col">
+    <div class="panel" id="en-panel">
+      <div class="panel-label">🎙 English (interviewer)</div>
+      <div class="panel-content" id="enText">
+        <span class="placeholder">Speech recognition will appear here…</span>
+      </div>
+    </div>
+    <div class="panel" id="zh-panel">
+      <div class="panel-label">🌐 中文翻译</div>
+      <div class="panel-content" id="zhText">
+        <span class="placeholder">中文翻译将显示在这里…</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right: AI answer -->
+  <div class="right-col">
+    <div class="ai-panel" id="aiPanel">
+      <div class="ai-panel-label">✨ AI Suggested Answer</div>
+      <div class="ai-answer" id="aiAnswer">
+        <span class="placeholder">点击「AI Answer」按钮，针对最新问题获取建议回答…</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="action-bar">
+  <div class="interview-tag">🧑‍💼 Role: <span>Desktop Engineer</span></div>
+  <div class="spacer"></div>
+  <button class="btn btn-clear" id="clearBtn">🗑 清空</button>
+  <button class="btn btn-ai" id="aiBtn" disabled>✨ AI Answer</button>
+</div>
+
+<script src="/sdk/speech.js"></script>
+<script>
+let recognizer = null;
+let isRunning = false;
+let enFinals = [];
+let zhFinals = [];
+let currentEnInterim = '';
+let currentZhInterim = '';
+
+const micBtn = document.getElementById('micBtn');
+const statusEl = document.getElementById('status');
+const enText = document.getElementById('enText');
+const zhText = document.getElementById('zhText');
+const aiBtn = document.getElementById('aiBtn');
+const aiAnswer = document.getElementById('aiAnswer');
+
+window.addEventListener('load', () => {
+  if (typeof SpeechSDK !== 'undefined') {
+    micBtn.disabled = false;
+    setStatus('Ready — click mic to start', '');
+  } else {
+    setStatus('SDK failed to load', 'error');
+  }
+});
+
+function setStatus(msg, type) {
+  statusEl.textContent = msg;
+  statusEl.className = 'status-bar ' + (type || '');
+}
+
+function esc(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function renderEn() {
+  let html = '';
+  if (currentEnInterim) html += `<div class="interim"><span class="num">…</span>${esc(currentEnInterim)}</div>`;
+  const total = enFinals.length;
+  html += [...enFinals].reverse().map((t, i) =>
+    `<div class="final c${i % 2}"><span class="num">${total - i}</span>${esc(t)}</div>`
+  ).join('');
+  enText.innerHTML = html || '<span class="placeholder">Speech recognition will appear here…</span>';
+}
+
+function renderZh() {
+  let html = '';
+  if (currentZhInterim) html += `<div class="interim-translate"><span class="num">…</span>${esc(currentZhInterim)}</div>`;
+  const total = zhFinals.length;
+  html += [...zhFinals].reverse().map((t, i) =>
+    `<div class="final-translate c${i % 2}"><span class="num">${total - i}</span>${esc(t)}</div>`
+  ).join('');
+  zhText.innerHTML = html || '<span class="placeholder">中文翻译将显示在这里…</span>';
+}
+
+function getZh(translations) {
+  if (!translations) return '';
+  if (typeof translations.get === 'function') {
+    return translations.get('zh-Hans') || translations.get('zh') || '';
+  }
+  return translations['zh-Hans'] || translations['zh'] || '';
+}
+
+async function startTranslation() {
+  setStatus('Fetching config…', '');
+  micBtn.disabled = true;
+
+  let key, region;
+  try {
+    const resp = await fetch('/api/speech-key');
+    const data = await resp.json();
+    key = data.key; region = data.region;
+  } catch (e) {
+    setStatus('Config error: ' + e.message, 'error');
+    micBtn.disabled = false;
+    return;
+  }
+
+  try {
+    const speechConfig = SpeechSDK.SpeechTranslationConfig.fromSubscription(key, region);
+    speechConfig.speechRecognitionLanguage = 'en-US';
+    speechConfig.addTargetLanguage('zh-Hans');
+
+    const audioConfig = SpeechSDK.AudioConfig.fromDefaultMicrophoneInput();
+    recognizer = new SpeechSDK.TranslationRecognizer(speechConfig, audioConfig);
+
+    recognizer.recognizing = (s, e) => {
+      currentEnInterim = e.result.text || '';
+      currentZhInterim = getZh(e.result.translations);
+      renderEn(); renderZh();
+    };
+
+    recognizer.recognized = (s, e) => {
+      if (e.result.reason === SpeechSDK.ResultReason.TranslatedSpeech && e.result.text) {
+        enFinals.push(e.result.text);
+        zhFinals.push(getZh(e.result.translations));
+        currentEnInterim = ''; currentZhInterim = '';
+        if (enFinals.length > 30) { enFinals.shift(); zhFinals.shift(); }
+        renderEn(); renderZh();
+        aiBtn.disabled = false;
+      }
+    };
+
+    recognizer.canceled = (s, e) => {
+      const msg = e.reason === SpeechSDK.CancellationReason.Error
+        ? 'Error: ' + e.errorDetails : 'Cancelled';
+      setStatus(msg, 'error');
+      stopTranslation();
+    };
+
+    recognizer.sessionStopped = () => { if (isRunning) stopTranslation(); };
+
+    recognizer.startContinuousRecognitionAsync(
+      () => {
+        isRunning = true;
+        micBtn.disabled = false;
+        micBtn.classList.add('active');
+        micBtn.textContent = '⏹';
+        setStatus('Listening…', 'ready');
+      },
+      err => {
+        setStatus('Start failed: ' + err, 'error');
+        micBtn.disabled = false;
+        recognizer = null;
+      }
+    );
+  } catch (e) {
+    setStatus('Init failed: ' + e.message, 'error');
+    micBtn.disabled = false;
+  }
+}
+
+function stopTranslation() {
+  if (!recognizer) {
+    isRunning = false;
+    micBtn.classList.remove('active');
+    micBtn.textContent = '🎤';
+    micBtn.disabled = false;
+    setStatus('Stopped — click mic to restart', '');
+    return;
+  }
+  micBtn.disabled = true;
+  recognizer.stopContinuousRecognitionAsync(
+    () => {
+      recognizer.close(); recognizer = null; isRunning = false;
+      currentEnInterim = ''; currentZhInterim = '';
+      renderEn(); renderZh();
+      micBtn.classList.remove('active');
+      micBtn.textContent = '🎤';
+      micBtn.disabled = false;
+      setStatus('Stopped — click mic to restart', '');
+    },
+    err => {
+      recognizer = null; isRunning = false;
+      micBtn.classList.remove('active');
+      micBtn.textContent = '🎤';
+      micBtn.disabled = false;
+      setStatus('Stop error: ' + err, 'error');
+    }
+  );
+}
+
+micBtn.addEventListener('click', () => {
+  if (isRunning) stopTranslation();
+  else startTranslation();
+});
+
+document.getElementById('clearBtn').addEventListener('click', () => {
+  enFinals = []; zhFinals = [];
+  currentEnInterim = ''; currentZhInterim = '';
+  renderEn(); renderZh();
+  aiAnswer.innerHTML = '<span class="placeholder">点击「AI Answer」按钮，针对最新问题获取建议回答…</span>';
+  aiBtn.disabled = true;
+});
+
+aiBtn.addEventListener('click', async () => {
+  if (enFinals.length === 0) return;
+  const lastThree = enFinals.slice(-3).reverse().join(' ');
+  aiBtn.disabled = true;
+  aiAnswer.innerHTML = '<span class="ai-loading">AI is thinking…</span>';
+
+  try {
+    const resp = await fetch('/api/gemini', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: lastThree })
+    });
+    const data = await resp.json();
+    aiAnswer.textContent = data.answer || data.error || 'No response';
+  } catch (e) {
+    aiAnswer.textContent = 'Request failed: ' + e.message;
+  } finally {
+    aiBtn.disabled = false;
+  }
+});
+</script>
+</body>
+</html>

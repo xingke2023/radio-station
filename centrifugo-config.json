@@ -1,0 +1,46 @@
+{
+  "client": {
+    "insecure": true,
+    "token": {
+      "hmac_secret_key": "my-secret-key-change-this"
+    },
+    "channel_limit": 10,
+    "expired_close_delay": "25s",
+    "stale_close_delay": "35s",
+    "ping_interval": "25s",
+    "allowed_origins": [
+      "https://ai.xingke888.com",
+      "https://us.xingke888.com",
+      "https://radio.xingke888.com",
+      "https://radiotranslator.com",
+      "https://www.radiotranslator.com",
+      "http://radiotranslator.com",
+      "http://www.radiotranslator.com",
+      "http://localhost",
+      "http://127.0.0.1",
+      "file://"
+    ]
+  },
+  "http_api": {
+    "insecure": true,
+    "key": "radio-api-key-2025"
+  },
+  "uni_sse": {
+    "enabled": true
+  },
+  "channel": {
+    "proxy": {
+      "subscribe": {
+        "endpoint": "http://localhost:8533/centrifugo/subscribe",
+        "timeout": "3s"
+      }
+    },
+    "namespaces": [
+      {
+        "name": "station",
+        "subscribe_proxy_enabled": true,
+        "presence": true
+      }
+    ]
+  }
+}

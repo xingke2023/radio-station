@@ -1,0 +1,170 @@
+# Claude Code 项目启动规则
+
+## 项目概述
+实时电台语音识别和翻译系统 - 使用 Azure Speech API + Centrifugo + WebSocket
+
+## 首次启动必读文档
+当 Claude 首次进入此项目时，请按顺序阅读以下文档：
+
+1. **CLAUDE-START-CHECKLIST.md** - 5分钟快速上手指南（最重要！）
+2. **PROJECT-OVERVIEW.md** - 完整项目文档
+3. **CENTRIFUGO-CLIENT-MEMO.md** - 客户端连接关键信息
+
+## 核心文件
+- `78-sse-22.js` - 主服务文件（端口 8533）
+- `database/AzureKeyManager.js` - Azure 密钥管理
+- `database/RadioDatabase.js` - 数据库操作
+- `test-client-disconnect.js` - WebSocket 客户端测试脚本
+
+## 重要约定
+
+### 代码修改规范
+1. 修改代码前先备份：`cp 78-sse-22.js 78-sse-22.js.backup`
+2. 修改后必须重启服务：`pm2 restart 78-sse-22`
+3. 立即查看日志验证：`pm2 logs 78-sse-22 --lines 30`
+
+### 日志输出规范
+- ❌ 不输出 Recognizing/Recognized 事件（已注释）
+- ❌ 不输出 Centrifugo 发布成功日志（已注释）
+- ✅ 保留客户端连接/断开日志
+- ✅ 保留识别启动/停止日志
+- ✅ 保留密钥切换日志
+- ✅ 保留所有错误和警告
+
+### 客户端连接规范
+所有客户端示例代码必须包含 ping/pong 处理：
+```javascript
+if (Object.keys(msg).length === 0) {
+    ws.send(JSON.stringify({}));  // 响应 pong
+    return;
+}
+```
+
+详见：CENTRIFUGO-CLIENT-MEMO.md
+
+### Azure 密钥管理规范
+- 所有密钥操作通过 `AzureKeyManager` 类
+- 不要手动修改数据库中的密钥状态
+- 配额超限时依赖自动切换机制（已实现）
+- 密钥字段说明：
+  - `is_active`: 0=禁用, 1=激活
+  - `quota_exceeded_count`: >0 表示暂时不可用
+  - `max_concurrent_stations`: 默认 5
+
+## 常用命令
+
+### 查看状态
+```bash
+pm2 list                              # 所有进程状态
+pm2 logs 78-sse-22 --lines 50         # 查看主服务日志
+curl http://localhost:8533/api/stations  # 活跃电台
+curl http://localhost:8533/api/keys      # 密钥状态
+```
+
+### 测试
+```bash
+node test-client-disconnect.js        # 测试 WebSocket 连接
+curl http://localhost:8533/api/radios # 测试 API
+```
+
+### 服务管理
+```bash
+pm2 restart 78-sse-22                 # 重启主服务
+pm2 restart centrifugo                # 重启 Centrifugo
+pm2 stop 78-sse-22                    # 停止服务
+```
+
+## 问题排查优先级
+
+### P0 - 紧急（立即处理）
+1. 服务完全停止
+2. 所有客户端无法连接
+3. 数据库连接失败
+
+### P1 - 高优先级
+1. Azure 密钥全部超限
+2. 客户端频繁断开连接
+3. 语音识别停止工作
+
+### P2 - 中优先级
+1. 性能问题（延迟、内存）
+2. 日志过多
+3. 个别电台异常
+
+## 关键提醒
+
+### 🔴 绝对不能忘记
+1. 客户端必须响应 Centrifugo ping（空消息）
+2. Centrifugo 配置：25秒 ping + 10秒 pong_timeout
+3. 主服务端口 8533，Centrifugo 端口 8000
+4. WebSocket URL: wss://radio.xingke888.com/centrifugo/connection/websocket
+
+### 常见错误
+1. 客户端 25-35 秒断开 → 没有响应 ping
+2. 识别停止 → 检查密钥状态和音频流
+3. 连接失败 → 检查 Centrifugo 和 Nginx
+
+## 数据库信息
+- 主机: localhost:8510
+- 用户: root
+- 密码: Uu8297636
+- 数据库: radio
+
+## 目录结构
+```
+/home/ubuntu/radio/
+├── 78-sse-22.js                    # 主程序
+├── database/                       # 数据库操作类
+│   ├── AzureKeyManager.js
+│   └── RadioDatabase.js
+├── test-client-disconnect.js       # 测试脚本
+├── CLAUDE-START-CHECKLIST.md       # 快速上手（必读）
+├── PROJECT-OVERVIEW.md             # 完整文档
+├── CENTRIFUGO-CLIENT-MEMO.md       # 客户端连接备忘
+└── .clinerules                     # 本文件
+```
+
+## 工作流程
+
+### 修改代码
+1. 阅读相关文档了解背景
+2. 使用 Read 工具读取文件
+3. 使用 Edit 工具修改代码
+4. 备份并重启服务
+5. 查看日志验证修改
+
+### 排查问题
+1. 查看日志：`pm2 logs 78-sse-22`
+2. 检查服务状态：`pm2 list`
+3. 测试 API：`curl http://localhost:8533/...`
+4. 运行测试脚本：`node test-client-disconnect.js`
+5. 查阅相关文档
+
+### 添加新功能
+1. 在相关类中添加方法
+2. 更新文档说明新功能
+3. 添加相应的 API 端点（如需要）
+4. 编写测试脚本验证
+5. 更新 CHANGELOG.md
+
+## 性能优化建议
+1. 日志已优化（减少高频输出）
+2. 批量发送事件（每批 10 个客户端）
+3. 使用 setImmediate 避免阻塞事件循环
+4. 限制最大客户端数（默认 50）
+5. 历史记录大小为 0（节约内存）
+
+## 安全注意事项
+1. 数据库密码已在代码中（生产环境应使用环境变量）
+2. Centrifugo 使用 insecure 模式（开发环境）
+3. 所有 API 端点无认证（内部网络）
+4. WebSocket 通过 Nginx SSL 代理
+
+## 更新记录
+- 2025-10-28: 创建项目文档和启动规则
+- 2025-10-28: 添加自动密钥切换功能
+- 2025-10-28: 修复客户端 ping/pong 问题
+- 2025-10-28: 优化日志输出
+
+## 联系方式
+如有问题，查阅文档或查看代码注释。

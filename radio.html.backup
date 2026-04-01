@@ -1,0 +1,1395 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta id="metadatas" openid="{{openid}}" issub="{{issub}}"> 
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Material Icons -->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+        }
+    </style>
+    <title>小程序:粤语速学</title>
+    <!-- HLS.js for m3u8 support -->
+    <script src="static/js/hls.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Helvetica, 'PingFang SC', 'Microsoft YaHei', Arial, sans-serif;
+            background-color: #f8f9fa;
+            color: #333;
+            -webkit-font-smoothing: antialiased;
+            line-height: 1.5;
+        }
+        
+        .app-container {
+            max-width: 800px;
+            min-height: 100vh;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .header {
+            background-color: #1890ff;
+            color: white;
+            padding: 16px;
+            text-align: center;
+            font-size: 20px;
+            font-weight: 500;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .section {
+            padding: 20px;
+            flex: 1;
+        }
+        
+        .card {
+            background-color: white;
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+        }
+        
+        .station-container {
+            display: flex;
+            overflow-x: auto;
+            scroll-behavior: smooth;
+            padding: 10px 0;
+            margin-bottom: 10px;
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        .station-item {
+            flex: 0 0 auto;
+            min-width: 80px;
+            text-align: center;
+            margin-right: 15px;
+            padding: 12px 8px;
+            border-radius: 12px;
+            background-color: #f0f5ff;
+            border: 2px solid transparent;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        
+        .station-item.active {
+            border-color: #1890ff;
+            background-color: #e6f7ff;
+            box-shadow: 0 2px 8px rgba(24, 144, 255, 0.2);
+        }
+        
+        .station-item:hover .station-icon {
+            transform: scale(1.05);
+        }
+        
+        .station-icon {
+            width: 78px;
+            height: 78px;
+            border-radius: 50%;
+            background-color: #1890ff;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin: 0 auto 8px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .station-icon img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .station-item:nth-child(2) .station-icon {
+            background-color: #fa8c16;
+        }
+        
+        .station-item:nth-child(3) .station-icon {
+            background-color: #52c41a;
+        }
+        
+        .station-item:nth-child(4) .station-icon {
+            background-color: #722ed1;
+        }
+        
+        .station-item:nth-child(5) .station-icon {
+            background-color: #eb2f96;
+        }
+        
+        .station-name {
+            font-size: 13px;
+            white-space: nowrap;
+        }
+        
+        /* New mini play button inside station icon - always visible */
+        .play-mini-button {
+            position: absolute;
+            top: 30%;
+            left: 30%;
+            width: 40%;
+            height: 40%;
+            border-radius: 50%;
+            
+            color: rgb(247, 243, 243);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            cursor: pointer;
+            opacity: 0.8; /* Always visible */
+            transition: background-color 0.3s ease;
+            
+        }
+        
+        .station-icon:hover .play-mini-button {
+            opacity: 1;
+            background-color: rgba(0, 0, 0, 0.7);
+        }
+
+        .station-item:active .play-mini-button {
+            opacity: 1;
+            background-color: rgba(0, 0, 0, 0.7);
+        }
+        
+        .station-item.playing .play-mini-button {
+            opacity: 1;
+            background-color: rgba(0, 0, 0, 0.7);
+        }
+        
+        .player-time {
+            text-align: center;
+            margin-top: 5px;
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .status-box {
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            margin-bottom: 20px;
+            background-color: #f0f5ff;
+            color: #1890ff;
+            display: flex;
+            align-items: center;
+        }
+        
+        .status-box::before {
+            content: "📻";
+            margin-right: 8px;
+        }
+        
+        .transcript-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        
+        .transcript-title {
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .transcript-title::before {
+            margin-right: 8px;
+        }
+        
+        .transcript-buttons {
+            display: flex;
+            align-items: center;
+        }
+        
+        .fullscreen-button {
+            background: none;
+            border: none;
+            color: #1890ff;
+            font-size: 18px;
+            cursor: pointer;
+            margin-right: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.2s ease;
+        }
+        
+        .fullscreen-button:hover {
+            transform: scale(1.1);
+        }
+        
+        /* Fullscreen transcript styles */
+        .fullscreen-transcript {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: white;
+            z-index: 1000;
+            padding: 20px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .fullscreen-transcript .transcript-header {
+            margin-bottom: 20px;
+        }
+        
+        .fullscreen-transcript .transcript-container {
+            flex: 1;
+            max-height: none;
+            overflow-y: auto;
+            font-size: 18px;
+            line-height: 1.8;
+        }
+        
+        .transcript-container {
+            max-height: 50vh;
+            min-height: 200px;
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: #d9d9d9 #f0f0f0;
+            padding-right: 8px;
+        }
+        
+        .transcript-container::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .transcript-container::-webkit-scrollbar-track {
+            background: #f0f0f0;
+            border-radius: 3px;
+        }
+        
+        .transcript-container::-webkit-scrollbar-thumb {
+            background-color: #d9d9d9;
+            border-radius: 3px;
+        }
+        
+        .english-text {
+            margin-bottom: 6px;
+            line-height: 1.6;
+        }
+        
+        .chinese-text {
+            color: #1890ff;
+            margin-bottom: 16px;
+            padding-left: 10px;
+            border-left: 2px solid #1890ff;
+            font-size: 16px;
+        }
+        
+        .interim-text {
+            min-height: 60px;
+            font-size: 14px;
+            color: #666;
+            background-color: #f9f9f9;
+            padding: 12px;
+            border-radius: 6px;
+            margin-top: 16px;
+        }
+        
+        .footer {
+            padding: 16px;
+            border-top: 1px solid #f0f0f0;
+            font-size: 12px;
+            color: #999;
+            text-align: center;
+            background-color: white;
+        }
+        
+        .footer p {
+            margin: 4px 0;
+        }
+        
+        .notification {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0, 0, 0, 0.75);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-size: 14px;
+            z-index: 1000;
+            max-width: 90%;
+            text-align: center;
+            animation: fadeInOut 3s ease forwards;
+        }
+        
+        @keyframes fadeInOut {
+            0% { opacity: 0; transform: translate(-50%, -20px); }
+            15% { opacity: 1; transform: translate(-50%, 0); }
+            85% { opacity: 1; transform: translate(-50%, 0); }
+            100% { opacity: 0; transform: translate(-50%, -20px); }
+        }
+    </style>
+</head>
+<body>
+    <div class="max-w-md mx-auto p-1">
+        <div class="bg-blue-600 text-white rounded-lg p-6 shadow-lg text-center">
+            <div class="text-3xl text-gray-800 tracking-wide text-center" style="color:white;text-align: center;font-weight: 300;">香港電台同步字幕</div>
+            
+        </div>
+    </div>
+    <div class="app-container">
+        <section class="section">
+            <div class="card">
+                <div class="station-container">
+                    <div class="station-item active" data-station-code="rthk1" data-use-centrifugo="true">
+                        <div class="station-icon" style="border-radius: 15%;width:75px;height:75px;">
+                            <img src="static/images/Radio_Television_Hong_Kong_Logo.svg.png" alt="RTHK">
+                            <div class="play-mini-button">▶</div>
+                        </div>
+                        <div class="station-name">香港电台I</div>
+                    </div>
+                    <div class="station-item active" data-station-code="rthk2" data-use-centrifugo="true">
+                        <div class="station-icon" style="border-radius: 15%;width:75px;height:75px;">
+                            <img src="static/images/Radio_Television_Hong_Kong_Logo.svg.png" alt="RTHK">
+                            <div class="play-mini-button">▶</div>
+                        </div>
+                        <div class="station-name">香港电台II</div>
+                    </div>
+                    <div class="station-item active" data-url="https://radio.xingke888.com/sse6/events" data-stream="https://sk.cri.cn/am846.m3u8">
+                        <div class="station-icon">
+                            <img src="https://cnvod.cnr.cn/audio2017/ondemand/media/1100/20211222/1640137536123.jpg" alt="CGTN">
+                            <div class="play-mini-button">▶</div>
+                        </div>
+                        <div class="station-name">央广英语资讯</div>
+                    </div>
+                    <div class="station-item" data-url="https://radio.xingke888.com/sse7/events" data-stream="https://radio.xingke888.com/stream?keyid=r6">
+                        <div class="station-icon">English
+                            <div class="play-mini-button">▶</div>
+                        </div>
+                        <div class="station-name">English1</div>
+                    </div>
+                    <div class="station-item active" data-url="https://radio.xingke888.com/sse3/events" data-stream="https://radio.xingke888.com/stream?keyid=r3">
+                        <div class="station-icon" style="border-radius: 15%;width:75px;height:75px;">
+                            <img src="static/images/Radio_Television_Hong_Kong_Logo.svg.png" alt="RTHK">
+                            <div class="play-mini-button">▶</div>
+                        </div>
+                        <div class="station-name">香港电台III</div>
+                    </div>
+                    <div class="station-item active" data-url="https://radio.xingke888.com/sse4/events" data-stream="https://radio.xingke888.com/stream?keyid=r4">
+                        <div class="station-icon" style="border-radius: 15%;width:75px;height:75px;">
+                            <img src="static/images/Radio_Television_Hong_Kong_Logo.svg.png" alt="RTHK">
+                            <div class="play-mini-button">▶</div>
+                        </div>
+                        <div class="station-name">香港电台IV</div>
+                    </div>
+                    <div class="station-item active" data-url="https://radio.xingke888.com/sse5/events" data-stream="https://radio.xingke888.com/stream?keyid=r5">
+                        <div class="station-icon" style="border-radius: 15%;width:75px;height:75px;">
+                            <img src="static/images/Radio_Television_Hong_Kong_Logo.svg.png" alt="RTHK">
+                            <div class="play-mini-button">▶</div>
+                        </div>
+                        <div class="station-name">香港电台V</div>
+                    </div>
+                </div>
+                
+                <div id="playerTime" class="player-time">00:00</div>
+                
+                <audio id="audioPlayer" hidden></audio>
+            </div>
+            
+            <div class="card">
+                <div class="transcript-header">
+                    <div class="transcript-title">实时字幕</div>
+                    <div class="transcript-buttons">
+                        <button id="fullscreenBtn" class="fullscreen-button">⛶</button>
+                    </div>
+                </div>
+                
+                <div class="transcript-container">
+                    <div id="transcriptText"></div>
+                    <div id="interimText">Select a station and press play to begin...</div>
+                </div>
+            </div>
+
+            <div id="status" class="status-box">
+                Ready to connect. Select a station to begin.
+            </div>
+        </section>
+        
+        <footer class="footer">
+            <p id="connectionInfo">Not connected</p>
+            <p id="connectionTime">-</p>
+            <input type="text" hidden id="serverUrl" value="https://ai.xingke888.com/sse-en/events1">
+            <!-- Add fallback URLs -->
+            <input type="text" hidden id="fallbackUrl" value="https://ai.xingke888.com/radio5-sse-en/events">
+            
+        </footer>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+    // DOM Elements
+    const status = document.getElementById('status');
+    const interimText = document.getElementById('interimText');
+    const transcriptText = document.getElementById('transcriptText');
+    const serverUrlInput = document.getElementById('serverUrl');
+    const audioPlayer = document.getElementById('audioPlayer');
+    const connectionInfo = document.getElementById('connectionInfo');
+    const connectionTime = document.getElementById('connectionTime');
+    const playerTime = document.getElementById('playerTime');
+    const stationItems = document.querySelectorAll('.station-item');
+    const miniPlayButtons = document.querySelectorAll('.play-mini-button');
+
+    // Connection variables
+    let eventSource = null;
+    let connectionStartTime = null;
+    let connectionTimer = null;
+    let isPlaying = false;
+    let progressTimer = null;
+    let hlsPlayer = null;
+    let currentStation = null;
+
+    // Set to keep track of already displayed messages
+    const displayedMessages = new Set();
+
+    // Centrifugo connection variables
+    let clientId = null;
+    let heartbeatInterval = null;
+    let stationInfo = null;
+    const API_BASE_URL = 'https://radio.xingke888.com/sse8';
+    const CENTRIFUGO_SSE_URL = 'https://radio.xingke888.com/centrifugo/connection/uni_sse';
+
+    // Initialize active station
+    currentStation = document.querySelector('.station-item.active');
+    
+    // Progress timer function
+    const startProgressTimer = () => {
+        if (progressTimer) clearInterval(progressTimer);
+        
+        let seconds = 0;
+        const metaElement = document.getElementById('metadatas');
+
+        // 获取 openid 和 issub 的值
+        const openid = metaElement.getAttribute('openid');
+        const issub = metaElement.getAttribute('issub');
+
+        progressTimer = setInterval(() => {
+            seconds++;
+            if (seconds > 40 && issub == '0') {
+                clearInterval(progressTimer);
+                progressTimer = null;
+                alert('此功能为付费会员服务.缴费方式请点击下方->交流园地->会员服务');
+                disconnectFromServer()
+                return;
+            }
+            const minutes = Math.floor(seconds / 60);
+            const remainingSeconds = seconds % 60;
+            playerTime.textContent = `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+        }, 1000);
+    };
+    
+    const stopProgressTimer = () => {
+        if (progressTimer) {
+            clearInterval(progressTimer);
+            progressTimer = null;
+        }
+        playerTime.textContent = '00:00';
+    };
+    
+    // Update connection time
+    const updateConnectionTime = () => {
+        if (!connectionStartTime) return;
+        
+        const now = new Date();
+        const diff = now - connectionStartTime;
+        const minutes = Math.floor(diff / 60000);
+        const seconds = Math.floor((diff % 60000) / 1000);
+        connectionTime.textContent = `Connected for: ${minutes}m ${seconds.toString().padStart(2, '0')}s`;
+    };
+    
+    // Connect via Centrifugo SSE
+    const connectViaCentrifugo = async (stationCode, stationName) => {
+        try {
+            console.log('🎙️ Connecting to station via Centrifugo:', stationCode);
+            status.textContent = `Connecting to ${stationName}...`;
+
+            // Update button states
+            stationItems.forEach(item => {
+                item.classList.remove('playing');
+                const button = item.querySelector('.play-mini-button');
+                button.textContent = '▶';
+            });
+
+            currentStation.classList.add('playing');
+            const currentButton = currentStation.querySelector('.play-mini-button');
+            currentButton.textContent = '⌛';
+
+            // Step 1: Get connection token and station info
+            const connectUrl = `${API_BASE_URL}/sse/connect?station_code=${stationCode}`;
+            const response = await fetch(connectUrl);
+
+            if (!response.ok) {
+                throw new Error('Failed to get connection info');
+            }
+
+            const data = await response.json();
+            console.log('✅ Got connection info:', data);
+            stationInfo = data.radio;
+
+            // Step 2: Setup audio player
+            if (stationInfo && stationInfo.url) {
+                initHlsPlayer(stationInfo.url);
+                audioPlayer.play().then(() => {
+                    isPlaying = true;
+                    currentButton.textContent = '❚❚';
+                    startProgressTimer();
+                }).catch(err => {
+                    console.error('Audio playback failed:', err);
+                    showNotification('Audio playback failed, please manually click play');
+                });
+            }
+
+            // Step 3: Connect to Centrifugo SSE
+            status.textContent = 'Establishing SSE connection...';
+            const sseUrl = new URL(CENTRIFUGO_SSE_URL);
+            sseUrl.searchParams.append('cf_connect', JSON.stringify({
+                token: data.token
+            }));
+
+            eventSource = new EventSource(sseUrl);
+
+            eventSource.onopen = function() {
+                console.log('✅ SSE connection established');
+                status.textContent = 'SSE connection established';
+            };
+
+            eventSource.onmessage = function(event) {
+                if (event.data === '{}') {
+                    // Ping message
+                    return;
+                }
+
+                try {
+                    const msg = JSON.parse(event.data);
+
+                    // Connection success
+                    if (msg.connect) {
+                        clientId = msg.connect.client;
+                        console.log('✅ Centrifugo connected, Client ID:', clientId);
+                        status.textContent = `Connected to ${stationName}`;
+                        connectionInfo.textContent = `Connected to ${stationName} with captions`;
+                        connectionStartTime = new Date();
+                        updateConnectionTime();
+                        connectionTimer = setInterval(updateConnectionTime, 1000);
+
+                        // Step 4: Subscribe to station
+                        subscribeToStation(stationCode).then(() => {
+                            startHeartbeat(stationCode);
+                        }).catch(err => {
+                            console.error('Subscription failed:', err);
+                        });
+
+                        showNotification(`Successfully connected to ${stationName}`);
+                    }
+
+                    // Received subtitle data
+                    if (msg.pub && msg.pub.data) {
+                        const pushData = msg.pub.data;
+
+                        if (pushData.event === 'recognized') {
+                            console.log('📥 Received subtitle:', pushData);
+
+                            const translation = pushData.translations && pushData.translations['zh-CN']
+                                              ? pushData.translations['zh-CN']
+                                              : '';
+
+                            // Format text with jyutping
+                            const formattedText = pushData.text ? formatWithJyutping(pushData.text) : '';
+
+                            // Clear interim text
+                            interimText.innerHTML = '';
+
+                            // Add to transcript
+                            const MAX_TRANSCRIPT_LENGTH = 50000;
+
+                            if (translation) {
+                                transcriptText.innerHTML += `<div class="english-text">${formattedText}</div><div class="chinese-text">${translation}</div>`;
+                            } else {
+                                transcriptText.innerHTML += `<div class="english-text" style="margin-bottom:15px">${formattedText}</div>`;
+                            }
+
+                            // Trim if necessary
+                            if (transcriptText.innerHTML.length > MAX_TRANSCRIPT_LENGTH) {
+                                const divIndex = transcriptText.innerHTML.indexOf('</div>', transcriptText.innerHTML.length - MAX_TRANSCRIPT_LENGTH);
+                                if (divIndex !== -1) {
+                                    transcriptText.innerHTML = transcriptText.innerHTML.substring(divIndex + 6);
+                                } else {
+                                    transcriptText.innerHTML = transcriptText.innerHTML.substring(transcriptText.innerHTML.length - MAX_TRANSCRIPT_LENGTH);
+                                }
+                            }
+
+                            const container = document.querySelector('.transcript-container');
+                            container.scrollTop = container.scrollHeight;
+                        }
+                        else if (pushData.event === 'recognizing') {
+                            console.log('🎤 Recognizing:', pushData.text);
+                            const formattedText = pushData.text ? formatWithJyutping(pushData.text) : '';
+                            const translation = pushData.translations && pushData.translations['zh-CN']
+                                              ? pushData.translations['zh-CN']
+                                              : '';
+                            interimText.innerHTML = formattedText + (translation ? '<br>' + translation : '');
+                        }
+                        else if (pushData.event === 'started') {
+                            console.log('🚀 Recognition started');
+                            status.textContent = `${stationName} recognition started, waiting for subtitles...`;
+                            interimText.innerHTML = '<span style="color: #999;">Waiting for radio signal (music will not be transcribed)...</span>';
+                        }
+                        else if (pushData.event === 'reconnecting') {
+                            const retryMsg = pushData.isAudioSourceError
+                                ? `⚠️ Audio source connection failed, retrying (${pushData.retryCount}/${pushData.maxRetries})...`
+                                : `🔄 Connection interrupted, retrying (${pushData.retryCount}/${pushData.maxRetries})...`;
+                            console.log(retryMsg);
+                            status.textContent = retryMsg;
+                        }
+                        else if (pushData.event === 'audioSourceFailed') {
+                            console.error('❌ Audio source connection failed:', pushData);
+                            status.textContent = `❌ ${pushData.message}: ${pushData.details}`;
+                            showNotification('Audio source connection failed');
+                        }
+                    }
+                } catch (error) {
+                    console.error('❌ Failed to parse message:', error);
+                }
+            };
+
+            eventSource.onerror = function(error) {
+                console.error('❌ SSE error:', error);
+                status.textContent = 'SSE connection error. Audio will continue to play.';
+                showNotification('SSE connection error. Audio will continue to play.');
+
+                if (eventSource.readyState === EventSource.CLOSED) {
+                    eventSource.close();
+                    eventSource = null;
+                }
+            };
+
+        } catch (error) {
+            console.error('❌ Connection failed:', error);
+            status.textContent = `Connection failed: ${error.message}`;
+            showNotification(`Connection failed: ${error.message}`);
+
+            // Reset button state
+            const currentButton = currentStation.querySelector('.play-mini-button');
+            currentButton.textContent = '▶';
+            currentStation.classList.remove('playing');
+        }
+    };
+
+    // Subscribe to station
+    const subscribeToStation = async (stationCode) => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/sse/subscribe`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    station_code: stationCode,
+                    client_id: clientId
+                })
+            });
+
+            const result = await response.json();
+            console.log('✅ Station subscribed:', result.message);
+        } catch (error) {
+            console.error('❌ Failed to subscribe to station:', error);
+            throw error;
+        }
+    };
+
+    // Start heartbeat
+    const startHeartbeat = (stationCode) => {
+        if (heartbeatInterval) {
+            clearInterval(heartbeatInterval);
+        }
+
+        // Send first heartbeat immediately
+        sendHeartbeat(stationCode);
+
+        // Send heartbeat every 30 seconds
+        heartbeatInterval = setInterval(() => {
+            sendHeartbeat(stationCode);
+        }, 30000);
+
+        console.log('💓 Heartbeat started (every 30 seconds)');
+    };
+
+    // Send heartbeat
+    const sendHeartbeat = async (stationCode) => {
+        if (!clientId) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/client/heartbeat`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    client_id: clientId,
+                    channel: `station:${stationCode}`
+                })
+            });
+
+            const result = await response.json();
+            if (result.success) {
+                console.log('💓 Heartbeat sent successfully');
+            } else {
+                console.warn('⚠️ Heartbeat response abnormal:', result);
+            }
+        } catch (error) {
+            console.error('❌ Failed to send heartbeat:', error);
+        }
+    };
+
+    // Initialize HLS player
+    const initHlsPlayer = (src) => {
+        // Destroy existing HLS player if it exists
+        if (hlsPlayer) {
+            hlsPlayer.destroy();
+            hlsPlayer = null;
+        }
+        
+        // Check if the stream URL is an m3u8 file
+        const isHlsStream = src.includes('.m3u8');
+        
+        if (isHlsStream && Hls.isSupported()) {
+            hlsPlayer = new Hls();
+            hlsPlayer.loadSource(src);
+            hlsPlayer.attachMedia(audioPlayer);
+            
+            hlsPlayer.on(Hls.Events.MANIFEST_PARSED, () => {
+                console.log('HLS manifest loaded, ready to play');
+            });
+            
+            hlsPlayer.on(Hls.Events.ERROR, (event, data) => {
+                if (data.fatal) {
+                    switch(data.type) {
+                        case Hls.ErrorTypes.NETWORK_ERROR:
+                            console.log('HLS network error, trying to recover...');
+                            hlsPlayer.startLoad();
+                            break;
+                        case Hls.ErrorTypes.MEDIA_ERROR:
+                            console.log('HLS media error, trying to recover...');
+                            hlsPlayer.recoverMediaError();
+                            break;
+                        default:
+                            console.error('HLS fatal error:', data);
+                            showNotification('Audio stream failed to load');
+                            initNormalPlayer(src);
+                            break;
+                    }
+                }
+            });
+            
+            return true;
+        } else {
+            // Use native audio player for non-HLS streams
+            audioPlayer.src = src;
+            audioPlayer.load();
+            return false;
+        }
+    };
+    
+    // Connect to SSE server
+    const connectToServer = async () => {
+        if (!currentStation) {
+            showNotification('Please select a station first');
+            return;
+        }
+
+        // Clear displayed messages set when connecting to a new station
+        displayedMessages.clear();
+
+        // Clear transcript text when connecting to a new station
+        transcriptText.innerHTML = '';
+
+        // Close existing connection if any
+        if (eventSource) {
+            eventSource.close();
+            eventSource = null;
+        }
+
+        // Stop heartbeat if any
+        if (heartbeatInterval) {
+            clearInterval(heartbeatInterval);
+            heartbeatInterval = null;
+        }
+
+        const stationName = currentStation.querySelector('.station-name').textContent;
+        const useCentrifugo = currentStation.getAttribute('data-use-centrifugo') === 'true';
+        const stationCode = currentStation.getAttribute('data-station-code');
+
+        // Check if using Centrifugo mode
+        if (useCentrifugo && stationCode) {
+            await connectViaCentrifugo(stationCode, stationName);
+            return;
+        }
+
+        // Legacy mode: Get the server URL and stream URL from the station
+        const serverUrl = currentStation.getAttribute('data-url');
+        const streamUrl = currentStation.getAttribute('data-stream');
+        
+        // Update UI initially
+        status.textContent = 'Connecting to radio signal...';
+        
+        // Update button states
+        stationItems.forEach(item => {
+            item.classList.remove('playing');
+            const button = item.querySelector('.play-mini-button');
+            button.textContent = '▶';
+        });
+        
+        currentStation.classList.add('playing');
+        const currentButton = currentStation.querySelector('.play-mini-button');
+        currentButton.textContent = '⌛';
+        
+        // Set audio source and start playing regardless of SSE availability
+        initHlsPlayer(streamUrl);
+        
+        audioPlayer.play().then(() => {
+            isPlaying = true;
+            currentButton.textContent = '❚❚';
+            startProgressTimer();
+            
+            // If no serverUrl is provided, only play audio without SSE
+            if (!serverUrl || serverUrl.trim() === '') {
+                status.textContent = `Playing ${stationName} (audio only)`;
+                connectionInfo.textContent = `Connected to ${stationName} (no captions)`;
+                connectionStartTime = new Date();
+                updateConnectionTime();
+                connectionTimer = setInterval(updateConnectionTime, 1000);
+                
+                // Update the interim text
+                interimText.innerHTML = '<span style="color: #999;">This station does not support captions</span>';
+                
+                // Show notification
+                showNotification(`Playing ${stationName} (audio only)`);
+                return; // Exit early, don't try to connect to SSE
+            }
+            
+            // If we have a serverUrl, try to connect to SSE
+            try {
+                console.log("Connecting to SSE URL:", serverUrl);
+                eventSource = new EventSource(serverUrl);
+                
+                // Connection open
+                eventSource.onopen = () => {
+                    console.log("SSE connection opened");
+                    status.textContent = 'Connected to radio signal with captions';
+                    
+                    // Reset retry counter on successful connection
+                    retryCount = 0;
+                    
+                    // Clear display area and add initial hint
+                    interimText.innerHTML = '<span style="color: #999;">Waiting for radio signal (music will not be transcribed)...</span>';
+                    
+                    // Add initial hint if there's no text
+                    if (!transcriptText.textContent.trim()) {
+                        transcriptText.innerHTML = '<span style="color: #999;">Transcription will appear here...</span>';
+                    }
+                    
+                    connectionInfo.textContent = `Connected to ${stationName} with captions`;
+                    connectionStartTime = new Date();
+                    updateConnectionTime();
+                    connectionTimer = setInterval(updateConnectionTime, 1000);
+                    
+                    // Connection success notification
+                    showNotification(`Successfully connected to ${stationName} with captions`);
+                };
+                
+                // Interim recognition results
+                eventSource.addEventListener('recognizing', (event) => {
+    try {
+        if (event.data) {
+            const data = JSON.parse(event.data);
+            // console.log("recognizing:", data);
+            
+            // Format text with jyutping above characters
+            const formattedText = data.text ? formatWithJyutping(data.text) : '';
+            
+            // Display formatted text
+            interimText.innerHTML = formattedText + '<br>' + (data.translations || '');
+            
+            // Debug info
+            const container = document.querySelector('.transcript-container');
+            container.scrollTop = container.scrollHeight;
+            if (!data.text && interimText.innerHTML === '') {
+                interimText.innerHTML = '<span style="color: #999;">Waiting for interim results...</span>';
+            }
+        }
+    } catch (e) {
+        console.error('Error parsing recognition result:', e, event.data);
+        interimText.innerHTML = '<span style="color: #ff4d4f;">Error parsing recognition result</span>';
+    }
+});
+
+// Replace the event handler for 'recognized'
+eventSource.addEventListener('recognized', (event) => {
+    try {
+        if (event.data) {
+            const data = JSON.parse(event.data);
+            console.log("Final recognition recognized:", data);
+            if (data.text) {
+                // Format text with jyutping above characters
+                const formattedText = formatWithJyutping(data.text);
+                
+                // Clear interim text
+                interimText.innerHTML = '';
+                
+                // Add to transcript
+                
+
+                // Set a maximum character limit for the transcript
+                const MAX_TRANSCRIPT_LENGTH = 50000; // Adjust this value based on your testing
+
+                if (data.translations) {
+                    transcriptText.innerHTML += `<div class="english-text">${formattedText}</div><div class="chinese-text">${data.translations}</div>`;
+                } else {
+                    transcriptText.innerHTML += `<div class="english-text" style="margin-bottom:15px">${formattedText}</div>`;
+                }
+
+                // Check if the transcript is getting too long and trim it if necessary
+                if (transcriptText.innerHTML.length > MAX_TRANSCRIPT_LENGTH) {
+                    // Find a suitable place to trim (at a div boundary)
+                    const divIndex = transcriptText.innerHTML.indexOf('</div>', transcriptText.innerHTML.length - MAX_TRANSCRIPT_LENGTH);
+                    if (divIndex !== -1) {
+                        transcriptText.innerHTML = transcriptText.innerHTML.substring(divIndex + 6); // 6 is the length of '</div>'
+                    } else {
+                        // Fallback: just trim to max length
+                        transcriptText.innerHTML = transcriptText.innerHTML.substring(transcriptText.innerHTML.length - MAX_TRANSCRIPT_LENGTH);
+                    }
+                }
+                
+                const container = document.querySelector('.transcript-container');
+                container.scrollTop = container.scrollHeight;
+            }
+        }
+    } catch (e) {
+        console.error('Error parsing complete recognition result:', e, event.data);
+        showNotification('Error parsing complete recognition result');
+    }
+});
+                
+                // Error handling with retry mechanism
+                let retryCount = 0;
+                const maxRetries = 3;
+                
+                eventSource.onerror = (error) => {
+                    console.error("SSE connection error:", error);
+                    status.textContent = 'Caption service error. Audio will continue to play.';
+                    
+                    if (retryCount < maxRetries) {
+                        retryCount++;
+                        showNotification(`Caption service error, retry attempt ${retryCount}/${maxRetries}`);
+                        
+                        // Close the current connection
+                        if (eventSource) {
+                            eventSource.close();
+                            eventSource = null;
+                        }
+                        
+                        // Try to reconnect after a delay
+                        setTimeout(() => {
+                            if (!eventSource) {
+                                status.textContent = 'Reconnecting to caption service...';
+                                try {
+                                    eventSource = new EventSource(serverUrl);
+                                    // Re-attach all event handlers (omitted for brevity)
+                                    // ...
+                                } catch (e) {
+                                    console.error('Error reconnecting to caption service:', e);
+                                }
+                            }
+                        }, 2000);
+                    } else {
+                        // After max retries, leave audio playing but notify user
+                        status.textContent = 'Caption service unavailable. Audio will continue to play.';
+                        showNotification('Caption service unavailable. Audio will continue to play.');
+                        
+                        // Update UI
+                        interimText.innerHTML = '<span style="color: #ff4d4f;">Caption service unavailable</span>';
+                        connectionInfo.textContent = `Connected to ${stationName} (audio only)`;
+                        
+                        // Close the event source
+                        if (eventSource) {
+                            eventSource.close();
+                            eventSource = null;
+                        }
+                    }
+                };
+            } catch (e) {
+                console.error('Error connecting to caption service:', e);
+                status.textContent = `Caption service error - ${e.message}. Audio will continue to play.`;
+                showNotification('Failed to connect to caption service. Audio will continue to play.');
+                
+                // Update UI for audio-only mode
+                connectionInfo.textContent = `Connected to ${stationName} (audio only)`;
+                interimText.innerHTML = '<span style="color: #ff4d4f;">Caption service unavailable</span>';
+            }
+        }).catch(err => {
+            console.error('Failed to play audio:', err);
+            showNotification('Failed to play audio, please check permissions');
+            
+            // Reset station button
+            currentButton.textContent = '▶';
+            currentStation.classList.remove('playing');
+        });
+    };
+    
+    // Disconnect from SSE server
+    const disconnectFromServer = async () => {
+        console.log("Disconnecting from server...");
+
+        // Notify server for Centrifugo connections
+        if (clientId && currentStation) {
+            const stationCode = currentStation.getAttribute('data-station-code');
+            if (stationCode) {
+                try {
+                    await fetch(`${API_BASE_URL}/api/client/disconnect`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            client_id: clientId,
+                            channel: `station:${stationCode}`
+                        })
+                    });
+                    console.log('✅ Notified server of disconnection');
+                } catch (error) {
+                    console.error('⚠️ Failed to notify server of disconnection:', error);
+                }
+            }
+        }
+
+        // Stop heartbeat
+        if (heartbeatInterval) {
+            clearInterval(heartbeatInterval);
+            heartbeatInterval = null;
+            console.log('💔 Heartbeat stopped');
+        }
+
+        // Update UI for the currently playing station
+        if (currentStation) {
+            currentStation.classList.remove('playing');
+            const button = currentStation.querySelector('.play-mini-button');
+            button.textContent = '▶';
+        }
+
+        // Close SSE connection
+        if (eventSource) {
+            try {
+                eventSource.close();
+                console.log("SSE connection closed");
+            } catch (e) {
+                console.error("Error closing SSE connection:", e);
+            } finally {
+                eventSource = null;
+            }
+        }
+
+        // Stop HLS player if active
+        if (hlsPlayer) {
+            try {
+                hlsPlayer.destroy();
+                console.log("HLS player destroyed");
+            } catch (e) {
+                console.error("Error destroying HLS player:", e);
+            } finally {
+                hlsPlayer = null;
+            }
+        }
+
+        // Stop audio
+        try {
+            audioPlayer.pause();
+            audioPlayer.src = ""; // Clear audio source
+            audioPlayer.load(); // Reload to ensure it's cleared
+            console.log("Audio player stopped");
+        } catch (e) {
+            console.error("Error stopping audio player:", e);
+        }
+
+        // Reset state variables
+        isPlaying = false;
+        clientId = null;
+        stationInfo = null;
+        stopProgressTimer();
+
+        // Update UI
+        status.textContent = 'Disconnected';
+        connectionInfo.textContent = 'Not connected';
+
+        if (connectionTimer) {
+            clearInterval(connectionTimer);
+            connectionTimer = null;
+        }
+
+        interimText.innerHTML = 'Select a station and press play to begin...';
+
+        showNotification('Disconnected from radio');
+    };
+    
+    // Show notification
+    const showNotification = (message) => {
+        // Remove existing notification if any
+        const existingNotification = document.querySelector('.notification');
+        if (existingNotification) {
+            existingNotification.remove();
+        }
+        
+        // Create notification element
+        const notification = document.createElement('div');
+        notification.className = 'notification';
+        notification.textContent = message;
+        
+        // Append to body
+        document.body.appendChild(notification);
+        
+        // Remove after 3 seconds
+        setTimeout(() => {
+            notification.remove();
+        }, 3000);
+    };
+    
+    // Mini play button event handling
+    miniPlayButtons.forEach(button => {
+        button.addEventListener('click', (e) => {
+            e.stopPropagation(); // Prevent triggering the station item click event
+            
+            const stationItem = button.closest('.station-item');
+            
+            // If this station is already playing, disconnect/stop
+            if (stationItem.classList.contains('playing')) {
+                disconnectFromServer();
+                return;
+            }
+            
+            // If another station is playing, disconnect first
+            if (isPlaying) {
+                disconnectFromServer();
+            }
+            
+            // Set current station and update UI
+            currentStation = stationItem;
+            
+            // Update active station UI
+            stationItems.forEach(s => s.classList.remove('active'));
+            stationItem.classList.add('active');
+            
+            // Connect to server
+            connectToServer();
+        });
+    });
+    
+    // Station selection (clicking on the station item itself)
+    stationItems.forEach(station => {
+        station.addEventListener('click', (e) => {
+            // Don't handle if the click was on the play button (it has its own handler)
+            if (e.target.classList.contains('play-mini-button')) return;
+            
+            // Update active station
+            stationItems.forEach(s => s.classList.remove('active'));
+            station.classList.add('active');
+            currentStation = station;
+            
+            // Show station selection
+            const stationName = station.querySelector('.station-name').textContent;
+            showNotification(`Selected ${stationName}`);
+        });
+    });
+    
+    // Add fullscreen button functionality
+    const fullscreenBtn = document.getElementById('fullscreenBtn');
+    const transcriptCard = document.querySelector('.card:nth-child(2)'); // The transcript card
+    const transcriptContainer = document.querySelector('.transcript-container');
+    let isFullscreen = false;
+    
+    fullscreenBtn.addEventListener('click', () => {
+        if (!isFullscreen) {
+            // Create fullscreen container
+            const fullscreenElement = document.createElement('div');
+            fullscreenElement.className = 'fullscreen-transcript';
+            fullscreenElement.innerHTML = `
+                <div class="transcript-header">
+                    <div class="transcript-title">实时字幕</div>
+                    <div class="transcript-buttons">
+                        <button id="exitFullscreenBtn" class="fullscreen-button">⛶</button>
+                    </div>
+                </div>
+                <div class="transcript-container">${transcriptContainer.innerHTML}</div>
+            `;
+            
+            document.body.appendChild(fullscreenElement);
+            
+            // Handle exit fullscreen
+            document.getElementById('exitFullscreenBtn').addEventListener('click', () => {
+                document.body.removeChild(fullscreenElement);
+                isFullscreen = false;
+                fullscreenBtn.textContent = '⛶';
+                
+                // Sync back the content if needed
+                if (transcriptText.innerHTML !== fullscreenElement.querySelector('#transcriptText').innerHTML) {
+                    transcriptText.innerHTML = fullscreenElement.querySelector('#transcriptText').innerHTML;
+                }
+            });
+            
+            isFullscreen = true;
+            fullscreenBtn.textContent = '⛶';
+            
+            // Update the fullscreen content when the original updates
+            const originalObserver = new MutationObserver((mutations) => {
+                const fullscreenContainer = document.querySelector('.fullscreen-transcript .transcript-container');
+                if (fullscreenContainer) {
+                    fullscreenContainer.innerHTML = transcriptContainer.innerHTML;
+                    
+                    // Auto scroll to bottom
+                    fullscreenContainer.scrollTop = fullscreenContainer.scrollHeight;
+                }
+            });
+            
+            // Observe changes to the transcript text
+            originalObserver.observe(transcriptContainer, { 
+                childList: true,
+                subtree: true,
+                characterData: true
+            });
+            
+            showNotification('Entered fullscreen mode');
+        } else {
+            // If already in fullscreen, exit
+            const fullscreenElement = document.querySelector('.fullscreen-transcript');
+            if (fullscreenElement) {
+                document.body.removeChild(fullscreenElement);
+            }
+            
+            isFullscreen = false;
+            fullscreenBtn.textContent = '⛶';
+            showNotification('Exited fullscreen mode');
+        }
+    });
+    
+    // Page close
+    window.addEventListener('beforeunload', () => {
+        if (heartbeatInterval) {
+            clearInterval(heartbeatInterval);
+        }
+        if (eventSource) {
+            eventSource.close();
+        }
+        if (connectionTimer) {
+            clearInterval(connectionTimer);
+        }
+        if (progressTimer) {
+            clearInterval(progressTimer);
+        }
+        if (hlsPlayer) {
+            hlsPlayer.destroy();
+        }
+    });
+    
+    // Error handling for audio element
+    audioPlayer.addEventListener('error', (e) => {
+        console.error('Audio player error:', e);
+        const errorCode = audioPlayer.error ? audioPlayer.error.code : 'unknown';
+        status.textContent = `Audio error (${errorCode})`;
+        showNotification('Audio playback error');
+    });
+});
+
+
+
+
+const styleElement = document.createElement('style');
+styleElement.textContent = `
+.jyutping-container {
+    display: flex;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+}
+
+.char-jyutping-pair {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    margin-right: 2px;
+    margin-bottom: 5px;
+}
+
+.jyutping {
+    font-size: 14px;
+    color: #1890ff;
+    text-align: center;
+    line-height: 1.2;
+}
+
+.character {
+    font-size: 18px;
+    text-align: center;
+    line-height: 1.2;
+}
+`;
+document.head.appendChild(styleElement);
+
+
+function formatWithJyutping(text) {
+    if (!text) return '';
+    
+    // Regular expression to match Chinese characters with jyutping in parentheses
+    const regex = /([^\(]+)\(([^\)]+)\)/g;
+    
+    // Extract all matches
+    const matches = [];
+    let match;
+    while ((match = regex.exec(text)) !== null) {
+        matches.push({
+            character: match[1],
+            jyutping: match[2]
+        });
+    }
+    
+    // If no matches found, return the original text
+    if (matches.length === 0) return text;
+    
+    // Create a container with character-jyutping pairs
+    let formattedHTML = '<div class="jyutping-container">';
+    
+    for (const item of matches) {
+        // For each character-jyutping pair, create a span with flex column layout
+        formattedHTML += `
+            <span class="char-jyutping-pair">
+                <span class="jyutping">${item.jyutping}</span>
+                <span class="character">${item.character}</span>
+            </span>
+        `;
+    }
+    
+    formattedHTML += '</div>';
+    
+    return formattedHTML;
+}
+    </script>
+</body>
+</html>

@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>测试电台切换功能</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #fff;
+        }
+        .test-section {
+            background: #2a2a2a;
+            padding: 20px;
+            margin: 10px 0;
+            border-radius: 8px;
+        }
+        .success { color: #4CAF50; }
+        .error { color: #f44336; }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        pre {
+            background: #1a1a1a;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 电台切换功能测试</h1>
+
+    <div class="test-section">
+        <h2>测试 1: 获取电台列表</h2>
+        <button onclick="testGetStations()">运行测试</button>
+        <div id="test1Result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>测试 2: 验证电台数据结构</h2>
+        <button onclick="testStationStructure()">运行测试</button>
+        <div id="test2Result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>测试 3: 测试连接端点</h2>
+        <select id="testStationSelect">
+            <option value="">选择电台...</option>
+        </select>
+        <button onclick="testConnect()">测试连接</button>
+        <div id="test3Result"></div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:8533';
+        let stations = [];
+
+        async function testGetStations() {
+            const resultDiv = document.getElementById('test1Result');
+            resultDiv.innerHTML = '<p>正在测试...</p>';
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/radios`);
+                const data = await response.json();
+
+                if (data.success && data.radios) {
+                    stations = data.radios;
+                    resultDiv.innerHTML = `
+                        <p class="success">✅ 成功! 获取到 ${stations.length} 个电台</p>
+                        <pre>${JSON.stringify(data.radios.slice(0, 3), null, 2)}</pre>
+                        <p>显示前3个电台...</p>
+                    `;
+
+                    // 填充测试3的下拉框
+                    const select = document.getElementById('testStationSelect');
+                    select.innerHTML = '<option value="">选择电台...</option>' +
+                        stations.slice(0, 5).map(s =>
+                            `<option value="${s.id}">${s.name} (${s.id})</option>`
+                        ).join('');
+                } else {
+                    resultDiv.innerHTML = `<p class="error">❌ 失败: ${JSON.stringify(data)}</p>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="error">❌ 错误: ${error.message}</p>`;
+            }
+        }
+
+        async function testStationStructure() {
+            const resultDiv = document.getElementById('test2Result');
+
+            if (stations.length === 0) {
+                resultDiv.innerHTML = '<p class="error">❌ 请先运行测试1</p>';
+                return;
+            }
+
+            const requiredFields = ['id', 'name', 'url', 'language', 'targetLanguage'];
+            const sample = stations[0];
+            const missing = requiredFields.filter(field => !sample.hasOwnProperty(field));
+
+            if (missing.length === 0) {
+                resultDiv.innerHTML = `
+                    <p class="success">✅ 数据结构正确!</p>
+                    <p>示例电台:</p>
+                    <pre>${JSON.stringify(sample, null, 2)}</pre>
+                `;
+            } else {
+                resultDiv.innerHTML = `
+                    <p class="error">❌ 缺少字段: ${missing.join(', ')}</p>
+                `;
+            }
+        }
+
+        async function testConnect() {
+            const resultDiv = document.getElementById('test3Result');
+            const stationCode = document.getElementById('testStationSelect').value;
+
+            if (!stationCode) {
+                resultDiv.innerHTML = '<p class="error">❌ 请选择电台</p>';
+                return;
+            }
+
+            resultDiv.innerHTML = '<p>正在测试连接...</p>';
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/sse/connect?station_code=${stationCode}`);
+                const data = await response.json();
+
+                if (data.token) {
+                    resultDiv.innerHTML = `
+                        <p class="success">✅ 连接端点正常!</p>
+                        <p>Token: ${data.token.substring(0, 50)}...</p>
+                        <p>Channel: ${data.channel || 'N/A'}</p>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `<p class="error">❌ 未返回 token: ${JSON.stringify(data)}</p>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="error">❌ 错误: ${error.message}</p>`;
+            }
+        }
+
+        // 页面加载时自动运行测试1
+        window.addEventListener('DOMContentLoaded', testGetStations);
+    </script>
+</body>
+</html>

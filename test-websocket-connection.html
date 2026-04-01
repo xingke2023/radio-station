@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket 连接测试</title>
+    <script src="https://cdn.jsdelivr.net/npm/centrifuge@5/dist/centrifuge.js"></script>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            max-width: 1000px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #0f0;
+        }
+        h1 { color: #0f0; text-align: center; }
+        .log {
+            background: #000;
+            border: 1px solid #0f0;
+            padding: 20px;
+            border-radius: 8px;
+            height: 500px;
+            overflow-y: auto;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        .log-entry {
+            margin: 5px 0;
+            padding: 5px;
+            border-left: 3px solid #0f0;
+            padding-left: 10px;
+        }
+        .log-entry.error { border-left-color: #f00; color: #f00; }
+        .log-entry.success { border-left-color: #0f0; color: #0f0; }
+        .log-entry.info { border-left-color: #ff0; color: #ff0; }
+        .controls {
+            margin: 20px 0;
+            display: flex;
+            gap: 10px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background: #0f0;
+            color: #000;
+            border: none;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        button:hover { background: #0d0; }
+        button:disabled {
+            background: #333;
+            color: #666;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 Centrifugo WebSocket 连接诊断工具</h1>
+
+    <div class="controls">
+        <button id="testBtn">开始测试</button>
+        <button id="clearBtn">清空日志</button>
+    </div>
+
+    <div class="log" id="log"></div>
+
+    <script>
+        const logDiv = document.getElementById('log');
+        const testBtn = document.getElementById('testBtn');
+        const clearBtn = document.getElementById('clearBtn');
+
+        function addLog(message, type = 'info') {
+            const timestamp = new Date().toISOString().split('T')[1].split('.')[0];
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = `[${timestamp}] ${message}`;
+            logDiv.appendChild(entry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function clearLog() {
+            logDiv.innerHTML = '';
+        }
+
+        async function runTests() {
+            clearLog();
+            testBtn.disabled = true;
+
+            addLog('==================== 开始诊断 ====================', 'info');
+
+            // 测试 1: 原生 WebSocket 连接
+            addLog('', 'info');
+            addLog('测试 1: 原生 WebSocket 连接', 'info');
+            addLog('尝试连接: wss://radio.xingke888.com/centrifugo/connection/websocket', 'info');
+
+            try {
+                const ws = new WebSocket('wss://radio.xingke888.com/centrifugo/connection/websocket');
+
+                ws.onopen = () => {
+                    addLog('✅ WebSocket 连接成功!', 'success');
+
+                    // 发送 Centrifugo connect 命令
+                    addLog('发送 connect 命令...', 'info');
+                    ws.send(JSON.stringify({
+                        id: 1,
+                        connect: {}
+                    }));
+                };
+
+                ws.onmessage = (event) => {
+                    const msg = JSON.parse(event.data);
+
+                    // 处理 ping
+                    if (Object.keys(msg).length === 0) {
+                        addLog('收到 ping, 发送 pong', 'info');
+                        ws.send(JSON.stringify({}));
+                        return;
+                    }
+
+                    addLog(`收到消息: ${JSON.stringify(msg)}`, 'success');
+
+                    // 处理 connect 响应
+                    if (msg.connect) {
+                        addLog(`✅ 连接成功! Client ID: ${msg.connect.client}`, 'success');
+
+                        // 订阅频道
+                        addLog('尝试订阅频道 station:cnnnews...', 'info');
+                        ws.send(JSON.stringify({
+                            id: 2,
+                            subscribe: {
+                                channel: 'station:cnnnews'
+                            }
+                        }));
+                    }
+
+                    // 处理 subscribe 响应
+                    if (msg.subscribe) {
+                        addLog('✅ 订阅成功!', 'success');
+                        addLog('', 'info');
+                        addLog('==================== 诊断完成 ====================', 'success');
+                        addLog('✅ WebSocket 连接正常', 'success');
+                        addLog('✅ Centrifugo 连接正常', 'success');
+                        addLog('✅ 频道订阅正常', 'success');
+                        addLog('', 'info');
+                        addLog('⚠️ 如果字幕仍不显示，请检查:', 'info');
+                        addLog('  1. 电台 cnnnews 是否有识别事件发送', 'info');
+                        addLog('  2. 服务端 Centrifugo 发布是否成功', 'info');
+                        addLog('  3. 客户端页面的 subscribe 事件处理代码', 'info');
+
+                        // 等待一段时间监听数据
+                        setTimeout(() => {
+                            addLog('', 'info');
+                            addLog('保持连接，监听实时数据 (30秒)...', 'info');
+                        }, 1000);
+                    }
+
+                    // 处理实时数据推送
+                    if (msg.push && msg.push.pub && msg.push.pub.data) {
+                        const data = msg.push.pub.data;
+                        addLog(`📺 收到字幕事件: ${data.event}`, 'success');
+                        if (data.event === 'recognized') {
+                            addLog(`   英文: ${data.text}`, 'success');
+                            addLog(`   中文: ${data.translations}`, 'success');
+                            addLog(`   时间戳: offset=${data.offset}ms, duration=${data.duration}ms`, 'info');
+                        }
+                    }
+                };
+
+                ws.onerror = (error) => {
+                    addLog(`❌ WebSocket 错误: ${error}`, 'error');
+                    addLog('可能的原因:', 'error');
+                    addLog('  1. nginx 配置问题', 'error');
+                    addLog('  2. Centrifugo 服务未运行', 'error');
+                    addLog('  3. 防火墙阻止连接', 'error');
+                    testBtn.disabled = false;
+                };
+
+                ws.onclose = (event) => {
+                    addLog(`WebSocket 连接关闭 (code: ${event.code}, reason: ${event.reason})`, 'info');
+                    testBtn.disabled = false;
+                };
+
+                // 30秒后关闭连接
+                setTimeout(() => {
+                    if (ws.readyState === WebSocket.OPEN) {
+                        addLog('测试完成，关闭连接', 'info');
+                        ws.close();
+                    }
+                }, 30000);
+
+            } catch (error) {
+                addLog(`❌ 异常: ${error.message}`, 'error');
+                testBtn.disabled = false;
+            }
+
+            // 测试 2: 使用 Centrifuge 库
+            addLog('', 'info');
+            addLog('测试 2: Centrifuge 客户端库连接', 'info');
+
+            try {
+                const centrifuge = new Centrifuge('wss://radio.xingke888.com/centrifugo/connection/websocket', {
+                    debug: true
+                });
+
+                centrifuge.on('connected', (ctx) => {
+                    addLog(`✅ Centrifuge 连接成功, client: ${ctx.client}`, 'success');
+                });
+
+                centrifuge.on('disconnected', (ctx) => {
+                    addLog(`Centrifuge 断开连接: ${ctx.reason}`, 'info');
+                });
+
+                centrifuge.on('error', (ctx) => {
+                    addLog(`❌ Centrifuge 错误: ${ctx.message}`, 'error');
+                });
+
+                centrifuge.connect();
+
+            } catch (error) {
+                addLog(`❌ Centrifuge 库异常: ${error.message}`, 'error');
+            }
+        }
+
+        testBtn.addEventListener('click', runTests);
+        clearBtn.addEventListener('click', clearLog);
+
+        // 页面加载时显示提示
+        addLog('点击 "开始测试" 按钮开始诊断 WebSocket 连接', 'info');
+    </script>
+</body>
+</html>

@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SSE 连接测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #fff;
+        }
+        h1 { color: #4CAF50; }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+        #log {
+            background: #2a2a2a;
+            padding: 15px;
+            border-radius: 4px;
+            max-height: 500px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 14px;
+            margin-top: 20px;
+        }
+        .log-item {
+            margin: 5px 0;
+            padding: 5px;
+            border-left: 3px solid #4CAF50;
+            padding-left: 10px;
+        }
+        .log-error { border-left-color: #f44336; color: #f44336; }
+        .log-success { border-left-color: #4CAF50; color: #4CAF50; }
+        .log-info { border-left-color: #2196F3; color: #2196F3; }
+    </style>
+</head>
+<body>
+    <h1>🔍 SSE 连接测试</h1>
+
+    <div>
+        <label>电台代码: <input type="text" id="stationCode" value="msnbc" style="padding: 5px;"></label>
+    </div>
+
+    <div style="margin-top: 10px;">
+        <button id="testBtn">开始测试</button>
+        <button id="clearBtn">清空日志</button>
+    </div>
+
+    <div id="log"></div>
+
+    <script>
+        const logDiv = document.getElementById('log');
+        const stationInput = document.getElementById('stationCode');
+        const testBtn = document.getElementById('testBtn');
+        const clearBtn = document.getElementById('clearBtn');
+
+        function log(message, type = 'info') {
+            const item = document.createElement('div');
+            item.className = `log-item log-${type}`;
+            item.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logDiv.appendChild(item);
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(message);
+        }
+
+        clearBtn.addEventListener('click', () => {
+            logDiv.innerHTML = '';
+        });
+
+        testBtn.addEventListener('click', async () => {
+            const stationCode = stationInput.value.trim();
+            if (!stationCode) {
+                log('请输入电台代码', 'error');
+                return;
+            }
+
+            testBtn.disabled = true;
+            log('========== 开始测试 ==========', 'info');
+
+            try {
+                // 测试 1: 获取连接信息
+                log('测试 1: 调用 /sse/connect 获取 token...', 'info');
+                const connectUrl = `https://radio.xingke888.com/sse8/sse/connect?station_code=${stationCode}`;
+                log(`URL: ${connectUrl}`, 'info');
+
+                const response = await fetch(connectUrl);
+                log(`HTTP 状态: ${response.status} ${response.statusText}`, response.ok ? 'success' : 'error');
+
+                if (!response.ok) {
+                    const text = await response.text();
+                    log(`响应内容: ${text}`, 'error');
+                    testBtn.disabled = false;
+                    return;
+                }
+
+                const data = await response.json();
+                log('✅ 获取 token 成功', 'success');
+                log(`频道: ${data.channel}`, 'info');
+                log(`Token: ${data.token.substring(0, 50)}...`, 'info');
+
+                // 测试 2: 连接 SSE
+                log('\n测试 2: 连接 Centrifugo SSE...', 'info');
+                const sseUrl = new URL('https://radio.xingke888.com/centrifugo/connection/uni_sse');
+                sseUrl.searchParams.append("cf_connect", JSON.stringify({
+                    token: data.token
+                }));
+                log(`SSE URL: ${sseUrl.toString().substring(0, 100)}...`, 'info');
+
+                const eventSource = new EventSource(sseUrl);
+
+                eventSource.onopen = function() {
+                    log('✅ SSE 连接已建立', 'success');
+                };
+
+                let messageCount = 0;
+                eventSource.onmessage = function(event) {
+                    messageCount++;
+
+                    if (event.data === '{}') {
+                        log(`💓 Ping (消息 #${messageCount})`, 'info');
+                        return;
+                    }
+
+                    try {
+                        const msg = JSON.parse(event.data);
+
+                        if (msg.connect) {
+                            log(`✅ Centrifugo 连接成功`, 'success');
+                            log(`Client ID: ${msg.connect.client}`, 'info');
+                            log(`订阅频道: ${JSON.stringify(msg.connect.subs)}`, 'info');
+
+                            // 测试 3: 调用订阅端点
+                            log('\n测试 3: 调用 /sse/subscribe 启动电台...', 'info');
+                            fetch('https://radio.xingke888.com/sse8/sse/subscribe', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    station_code: stationCode,
+                                    client_id: msg.connect.client
+                                })
+                            })
+                            .then(r => r.json())
+                            .then(result => {
+                                log(`✅ 电台启动: ${result.message}`, 'success');
+                                log('\n等待字幕数据...', 'info');
+                            })
+                            .catch(err => {
+                                log(`❌ 启动电台失败: ${err.message}`, 'error');
+                            });
+                        }
+
+                        if (msg.push && msg.push.pub && msg.push.pub.data) {
+                            const pushData = msg.push.pub.data;
+                            if (pushData.event === 'recognized') {
+                                log(`📺 收到字幕: ${pushData.text}`, 'success');
+                            } else if (pushData.event === 'started') {
+                                log(`🚀 语音识别已启动`, 'success');
+                            } else {
+                                log(`📡 事件: ${pushData.event}`, 'info');
+                            }
+                        }
+                    } catch (error) {
+                        log(`❌ 解析消息失败: ${error.message}`, 'error');
+                    }
+                };
+
+                eventSource.onerror = function(error) {
+                    log(`❌ SSE 错误: ${error}`, 'error');
+                    log(`ReadyState: ${eventSource.readyState}`, 'error');
+                    eventSource.close();
+                    testBtn.disabled = false;
+                };
+
+                // 30秒后自动关闭
+                setTimeout(() => {
+                    eventSource.close();
+                    log('\n========== 测试完成 ==========', 'info');
+                    testBtn.disabled = false;
+                }, 30000);
+
+            } catch (error) {
+                log(`❌ 测试失败: ${error.message}`, 'error');
+                testBtn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>

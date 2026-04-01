@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket 综合诊断</title>
+    <script src="https://cdn.jsdelivr.net/npm/centrifuge@5/dist/centrifuge.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+            color: #fff;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 {
+            text-align: center;
+            color: #4CAF50;
+            margin-bottom: 30px;
+            font-size: 32px;
+        }
+        .test-section {
+            background: #2a2a2a;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 25px;
+            border: 2px solid #333;
+        }
+        .test-section h2 {
+            color: #4CAF50;
+            margin-bottom: 15px;
+            font-size: 22px;
+        }
+        .status-bar {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .status-item {
+            flex: 1;
+            min-width: 200px;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        .status-item.idle { background: #555; }
+        .status-item.testing { background: #2196F3; animation: pulse 1.5s infinite; }
+        .status-item.success { background: #4CAF50; }
+        .status-item.error { background: #f44336; }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        button {
+            padding: 12px 24px;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            transition: all 0.3s;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        button:hover:not(:disabled) {
+            background: #45a049;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 8px rgba(0,0,0,0.4);
+        }
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+        .log {
+            background: #000;
+            color: #0f0;
+            padding: 15px;
+            border-radius: 8px;
+            height: 350px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            border: 2px solid #333;
+        }
+        .log-entry { margin: 3px 0; }
+        .log-entry.error { color: #f44; }
+        .log-entry.success { color: #4f4; }
+        .log-entry.warning { color: #ff4; }
+        .log-entry.info { color: #4ff; }
+        .subtitle-display {
+            background: rgba(0, 0, 0, 0.9);
+            padding: 20px;
+            border-radius: 8px;
+            min-height: 100px;
+            text-align: center;
+            border: 2px solid #4CAF50;
+        }
+        .subtitle-en {
+            color: #fff;
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .subtitle-zh {
+            color: #4CAF50;
+            font-size: 18px;
+        }
+        .config-info {
+            background: #1a1a1a;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            border-left: 4px solid #4CAF50;
+        }
+        .config-info code {
+            color: #ff0;
+            background: #333;
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 WebSocket 综合诊断工具</h1>
+
+        <!-- 配置信息 -->
+        <div class="test-section">
+            <h2>📋 配置信息</h2>
+            <div class="config-info">
+                <div><strong>WebSocket URL:</strong> <code id="wsUrl">wss://radio.xingke888.com/centrifugo/connection/websocket</code></div>
+                <div><strong>电台代码:</strong> <code id="stationCode">cnnnews</code></div>
+                <div><strong>频道:</strong> <code>station:cnnnews</code></div>
+            </div>
+        </div>
+
+        <!-- 状态栏 -->
+        <div class="test-section">
+            <h2>📊 连接状态</h2>
+            <div class="status-bar">
+                <div id="status1" class="status-item idle">原生 WebSocket: 未测试</div>
+                <div id="status2" class="status-item idle">Centrifuge 客户端: 未测试</div>
+                <div id="status3" class="status-item idle">字幕接收: 未测试</div>
+            </div>
+        </div>
+
+        <!-- 测试 1: 原生 WebSocket -->
+        <div class="test-section">
+            <h2>测试 1: 原生 WebSocket 连接</h2>
+            <div class="controls">
+                <button id="test1Btn">开始测试</button>
+                <button id="stop1Btn" disabled>停止测试</button>
+            </div>
+            <div class="log" id="log1"></div>
+        </div>
+
+        <!-- 测试 2: Centrifuge 客户端 -->
+        <div class="test-section">
+            <h2>测试 2: Centrifuge 客户端连接</h2>
+            <div class="controls">
+                <button id="test2Btn">开始测试</button>
+                <button id="stop2Btn" disabled>停止测试</button>
+            </div>
+            <div class="log" id="log2"></div>
+        </div>
+
+        <!-- 字幕显示 -->
+        <div class="test-section">
+            <h2>📺 字幕显示区</h2>
+            <div class="subtitle-display">
+                <div class="subtitle-en" id="subtitleEn">等待字幕数据...</div>
+                <div class="subtitle-zh" id="subtitleZh"></div>
+            </div>
+        </div>
+
+        <!-- 综合测试 -->
+        <div class="test-section">
+            <h2>🚀 一键综合测试</h2>
+            <div class="controls">
+                <button id="testAllBtn" style="background: #FF9800;">运行所有测试</button>
+                <button id="clearAllBtn">清空所有日志</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const WS_URL = 'wss://radio.xingke888.com/centrifugo/connection/websocket';
+        const STATION_CODE = 'cnnnews';
+
+        let ws1 = null;
+        let centrifuge = null;
+        let sub = null;
+
+        // 日志函数
+        function log(logId, message, type = 'info') {
+            const logDiv = document.getElementById(logId);
+            const time = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = `[${time}] ${message}`;
+            logDiv.appendChild(entry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(`[${logId}] ${message}`);
+        }
+
+        function updateStatus(statusId, text, state) {
+            const el = document.getElementById(statusId);
+            el.textContent = text;
+            el.className = `status-item ${state}`;
+        }
+
+        // ========== 测试 1: 原生 WebSocket ==========
+        document.getElementById('test1Btn').onclick = () => {
+            log('log1', '========================================', 'info');
+            log('log1', '开始测试原生 WebSocket 连接', 'warning');
+            log('log1', `URL: ${WS_URL}`, 'info');
+            log('log1', '========================================', 'info');
+
+            updateStatus('status1', '原生 WebSocket: 连接中...', 'testing');
+
+            try {
+                ws1 = new WebSocket(WS_URL);
+
+                ws1.onopen = () => {
+                    log('log1', '✅ WebSocket 连接成功！', 'success');
+                    updateStatus('status1', '原生 WebSocket: 已连接', 'success');
+
+                    // 发送 Centrifugo connect 命令
+                    log('log1', '发送 connect 命令...', 'info');
+                    ws1.send(JSON.stringify({ id: 1, connect: {} }));
+                };
+
+                ws1.onmessage = (event) => {
+                    try {
+                        const msg = JSON.parse(event.data);
+
+                        // 处理 ping
+                        if (Object.keys(msg).length === 0) {
+                            log('log1', '收到 ping, 发送 pong', 'info');
+                            ws1.send(JSON.stringify({}));
+                            return;
+                        }
+
+                        log('log1', `收到消息: ${JSON.stringify(msg).substring(0, 100)}...`, 'success');
+
+                        // 处理 connect 响应
+                        if (msg.connect) {
+                            log('log1', `✅ Centrifugo 认证成功！`, 'success');
+                            log('log1', `   Client ID: ${msg.connect.client}`, 'info');
+
+                            // 订阅频道
+                            log('log1', `订阅频道: station:${STATION_CODE}`, 'info');
+                            ws1.send(JSON.stringify({
+                                id: 2,
+                                subscribe: { channel: `station:${STATION_CODE}` }
+                            }));
+                        }
+
+                        // 处理 subscribe 响应
+                        if (msg.subscribe) {
+                            log('log1', '✅ 频道订阅成功！', 'success');
+                            log('log1', '等待字幕数据...', 'info');
+                        }
+
+                        // 处理推送消息
+                        if (msg.push && msg.push.pub && msg.push.pub.data) {
+                            const data = msg.push.pub.data;
+                            log('log1', `📺 收到事件: ${data.event}`, 'success');
+
+                            if (data.event === 'recognized') {
+                                log('log1', `   英文: ${data.text}`, 'info');
+                                log('log1', `   中文: ${data.translations}`, 'info');
+                                log('log1', `   时间戳: offset=${data.offset}ms, duration=${data.duration}ms`, 'warning');
+
+                                updateStatus('status3', '字幕接收: 正常', 'success');
+                            }
+                        }
+                    } catch (e) {
+                        log('log1', `❌ 解析消息失败: ${e.message}`, 'error');
+                    }
+                };
+
+                ws1.onerror = (error) => {
+                    log('log1', `❌ WebSocket 错误！`, 'error');
+                    log('log1', `   错误对象: ${JSON.stringify(error)}`, 'error');
+                    updateStatus('status1', '原生 WebSocket: 错误', 'error');
+                };
+
+                ws1.onclose = (event) => {
+                    log('log1', `WebSocket 连接关闭`, 'warning');
+                    log('log1', `   关闭代码: ${event.code}`, 'info');
+                    log('log1', `   关闭原因: ${event.reason || '无'}`, 'info');
+                    updateStatus('status1', '原生 WebSocket: 已断开', 'idle');
+                    document.getElementById('test1Btn').disabled = false;
+                    document.getElementById('stop1Btn').disabled = true;
+                };
+
+                document.getElementById('test1Btn').disabled = true;
+                document.getElementById('stop1Btn').disabled = false;
+
+            } catch (error) {
+                log('log1', `❌ 创建 WebSocket 失败: ${error.message}`, 'error');
+                updateStatus('status1', '原生 WebSocket: 失败', 'error');
+            }
+        };
+
+        document.getElementById('stop1Btn').onclick = () => {
+            if (ws1) {
+                log('log1', '手动断开连接...', 'warning');
+                ws1.close();
+                ws1 = null;
+            }
+        };
+
+        // ========== 测试 2: Centrifuge 客户端 ==========
+        document.getElementById('test2Btn').onclick = () => {
+            log('log2', '========================================', 'info');
+            log('log2', '开始测试 Centrifuge 客户端', 'warning');
+            log('log2', '========================================', 'info');
+
+            updateStatus('status2', 'Centrifuge: 连接中...', 'testing');
+
+            try {
+                // 检查库是否加载
+                if (typeof Centrifuge === 'undefined') {
+                    throw new Error('Centrifuge 库未加载！');
+                }
+
+                log('log2', '✅ Centrifuge 库已加载', 'success');
+
+                centrifuge = new Centrifuge(WS_URL, { debug: false });
+
+                centrifuge.on('connecting', () => {
+                    log('log2', '正在建立连接...', 'info');
+                });
+
+                centrifuge.on('connected', (ctx) => {
+                    log('log2', '✅ Centrifuge 连接成功！', 'success');
+                    log('log2', `   Client ID: ${ctx.client}`, 'info');
+                    updateStatus('status2', 'Centrifuge: 已连接', 'success');
+
+                    // 订阅频道
+                    log('log2', `订阅频道: station:${STATION_CODE}`, 'info');
+                    sub = centrifuge.newSubscription(`station:${STATION_CODE}`);
+
+                    sub.on('subscribing', () => {
+                        log('log2', '正在订阅...', 'info');
+                    });
+
+                    sub.on('subscribed', () => {
+                        log('log2', '✅ 订阅成功！', 'success');
+                    });
+
+                    sub.on('publication', (ctx) => {
+                        const data = ctx.data;
+                        log('log2', `📺 收到事件: ${data.event}`, 'success');
+
+                        if (data.event === 'recognized') {
+                            log('log2', `   英文: ${data.text}`, 'info');
+                            log('log2', `   中文: ${data.translations}`, 'info');
+                            log('log2', `   时间戳: offset=${data.offset}ms, duration=${data.duration}ms`, 'warning');
+
+                            // 显示字幕
+                            document.getElementById('subtitleEn').textContent = data.text;
+                            document.getElementById('subtitleZh').textContent = data.translations;
+                            updateStatus('status3', '字幕接收: 正常', 'success');
+                        }
+                    });
+
+                    sub.on('error', (ctx) => {
+                        log('log2', `❌ 订阅错误: ${ctx.message}`, 'error');
+                    });
+
+                    sub.subscribe();
+                });
+
+                centrifuge.on('disconnected', (ctx) => {
+                    log('log2', `断开连接: ${ctx.reason}`, 'warning');
+                    updateStatus('status2', 'Centrifuge: 已断开', 'idle');
+                    document.getElementById('test2Btn').disabled = false;
+                    document.getElementById('stop2Btn').disabled = true;
+                });
+
+                centrifuge.on('error', (ctx) => {
+                    log('log2', `❌ 错误: ${ctx.message}`, 'error');
+                    updateStatus('status2', 'Centrifuge: 错误', 'error');
+                });
+
+                centrifuge.connect();
+
+                document.getElementById('test2Btn').disabled = true;
+                document.getElementById('stop2Btn').disabled = false;
+
+            } catch (error) {
+                log('log2', `❌ 初始化失败: ${error.message}`, 'error');
+                updateStatus('status2', 'Centrifuge: 失败', 'error');
+            }
+        };
+
+        document.getElementById('stop2Btn').onclick = () => {
+            if (centrifuge) {
+                log('log2', '手动断开连接...', 'warning');
+                centrifuge.disconnect();
+                centrifuge = null;
+                sub = null;
+            }
+        };
+
+        // 一键测试
+        document.getElementById('testAllBtn').onclick = async () => {
+            document.getElementById('clearAllBtn').click();
+
+            log('log1', '🚀 开始一键综合测试...', 'warning');
+            log('log2', '🚀 开始一键综合测试...', 'warning');
+
+            // 先测试原生 WebSocket
+            document.getElementById('test1Btn').click();
+
+            // 5秒后测试 Centrifuge
+            setTimeout(() => {
+                document.getElementById('test2Btn').click();
+            }, 5000);
+        };
+
+        // 清空日志
+        document.getElementById('clearAllBtn').onclick = () => {
+            document.getElementById('log1').innerHTML = '';
+            document.getElementById('log2').innerHTML = '';
+            document.getElementById('subtitleEn').textContent = '等待字幕数据...';
+            document.getElementById('subtitleZh').textContent = '';
+            log('log1', '日志已清空', 'info');
+            log('log2', '日志已清空', 'info');
+        };
+
+        // 页面加载提示
+        log('log1', '页面已就绪，点击"开始测试"按钮', 'info');
+        log('log2', '页面已就绪，点击"开始测试"按钮', 'info');
+    </script>
+</body>
+</html>
